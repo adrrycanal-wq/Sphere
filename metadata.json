@@ -1,0 +1,6 @@
+{
+  "name": "Sphere.",
+  "description": "Connect across your local circle and the wider world with Pulse, Orbit discovery, Global Circle, Universal Language translation, Floating Messenger, Loops, Frames, Shelves, Aid Drives, and Sphere Community Guidelines.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

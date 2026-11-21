@@ -1,0 +1,111 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --sp-bg: #F8FAFC;
+  --sp-surface: #FFFFFF;
+  --sp-surface-alt: #F1F5F9;
+  --sp-border: #E2E8F0;
+  --sp-border-subtle: #EEF2F6;
+  --sp-ink: #0F172A;
+  --sp-ink-2: #334155;
+  --sp-muted: #64748B;
+  --sp-primary: #4F46E5;
+  --sp-primary-hover: #4338CA;
+  --sp-primary-text: #4F46E5;
+  --sp-primary-soft: #EEF2FF;
+  --sp-primary-soft-border: #C7D2FE;
+  --sp-accent: #06B6D4;
+  --sp-accent-text: #0891B2;
+  --sp-accent-soft: #ECFEFF;
+  --sp-accent-soft-border: #A5F3FC;
+  --sp-input-bg: #FFFFFF;
+  --sp-input-border: #CBD5E1;
+  --sp-header-bg: #4F46E5;
+  --sp-header-border: #4338CA;
+  --sp-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.dark {
+  --sp-bg: #0F172A;
+  --sp-surface: #1E293B;
+  --sp-surface-alt: #162032;
+  --sp-border: #334155;
+  --sp-border-subtle: #253349;
+  --sp-ink: #F8FAFC;
+  --sp-ink-2: #CBD5E1;
+  --sp-muted: #94A3B8;
+  --sp-primary: #6366F1;
+  --sp-primary-hover: #4F46E5;
+  --sp-primary-text: #818CF8;
+  --sp-primary-soft: rgba(79, 70, 229, 0.16);
+  --sp-primary-soft-border: rgba(99, 102, 241, 0.4);
+  --sp-accent: #06B6D4;
+  --sp-accent-text: #22D3EE;
+  --sp-accent-soft: rgba(6, 182, 212, 0.15);
+  --sp-accent-soft-border: rgba(34, 211, 238, 0.35);
+  --sp-input-bg: #0F172A;
+  --sp-input-border: #334155;
+  --sp-header-bg: #1E1B4B;
+  --sp-header-border: #312E81;
+  --sp-shadow: 0 2px 6px rgba(2, 6, 23, 0.35);
+}
+
+@layer base {
+  html,
+  body {
+    background-color: var(--sp-bg);
+    color: var(--sp-ink);
+    font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  .dark body,
+  .dark {
+    letter-spacing: 0.005em;
+  }
+}
+
+.font-display {
+  font-family: "Bricolage Grotesque", "DM Sans", sans-serif;
+}
+
+.font-mono-code {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Custom subtle scrollbars */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.35);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.55);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

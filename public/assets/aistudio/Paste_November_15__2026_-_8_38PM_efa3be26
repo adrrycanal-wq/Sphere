@@ -1,0 +1,2138 @@
+Gemini
+import React, { useMemo, useState } from 'react';
+import {
+Globe,
+Compass,
+MessageCircle,
+UserPlus,
+UserCheck,
+Search,
+Languages,
+MapPin,
+Edit3,
+HeartHandshake,
+} from 'lucide-react';
+import { DiscoveryCategory, NavRoute, UserProfile } from '../types/social';
+import {
+DISCOVERY_CATEGORIES,
+computeInterestMatch,
+getEffectiveSphereId,
+} from '../utils/discovery';
+import { UserAvatar } from './Media';
+import { SphereIdBadge } from './SphereIdBadge';
+interface GlobalCircleViewProps {
+activeTab: 'circle' | 'find-people';
+initialCategory?: DiscoveryCategory | 'All';
+users: UserProfile[];
+currentUser: UserProfile;
+onNavigate: (route: NavRoute) => void;
+onToggleFriend: (userId: string) => void;
+onMessageUser: (userId: string) => void;
+onEditProfile: () => void;
+onOpenSphereId: () => void;
+}
+export const GlobalCircleView: React.FC<GlobalCircleViewProps> = ({
+activeTab,
+initialCategory = 'All',
+users,
+currentUser,
+onNavigate,
+onToggleFriend,
+onMessageUser,
+onEditProfile,
+onOpenSphereId,
+}) => {
+const [searchQuery, setSearchQuery] = useState('');
+const [selectedCountry, setSelectedCountry] = useState<string>('All');
+const [selectedLanguage, setSelectedLanguage] = useState<string>('All');
+const [selectedCategory, setSelectedCategory] = useState<DiscoveryCategory | 'All'>(
+initialCategory
+);
+const [interestFilter, setInterestFilter] = useState('');
+const candidates = useMemo(
+() => users.filter((u) => u.id !== currentUser.id),
+[users, currentUser.id]
+);
+const availableCountries = useMemo(() => {
+const set = new Set<string>();
+for (const u of candidates) {
+const c = u.country || u.location.split(',').pop()?.trim();
+if (c) set.add(c);
+}
+return ['All', ...Array.from(set).sort()];
+}, [candidates]);
+const availableLanguages = useMemo(() => {
+const set = new Set<string>();
+for (const u of candidates) {
+if (u.language) {
+u.language
+.split('&')
+.map((l) => l.trim())
+.filter(Boolean)
+.forEach((l) => set.add(l));
+}
+}
+return ['All', ...Array.from(set).sort()];
+}, [candidates]);
+const rankedMatches = useMemo(() => {
+const q = searchQuery.trim().toLowerCase();
+const interestQ = interestFilter.trim().toLowerCase();
+Code
+return candidates
+  .map((person) => {
+    const match = computeInterestMatch(currentUser, person);
+    return { person, match };
+  })
+  .filter(({ person }) => {
+    const personCountry = person.country || person.location.split(',').pop()?.trim() || '';
+    if (selectedCountry !== 'All' && personCountry !== selectedCountry) {
+      return false;
+    }
+    if (
+      selectedLanguage !== 'All' &&
+      !(person.language || '').toLowerCase().includes(selectedLanguage.toLowerCase())
+    ) {
+      return false;
+    }
+    if (
+      selectedCategory !== 'All' &&
+      !(person.categories || []).includes(selectedCategory)
+    ) {
+      return false;
+    }
+    if (interestQ) {
+      const pool = [
+        ...person.interests,
+        ...(person.hobbies || []),
+        ...(person.skills || []),
+        ...(person.goals || []),
+      ]
+        .join(' ')
+        .toLowerCase();
+      if (!pool.includes(interestQ)) return false;
+    }
+    if (q) {
+      const hay = [
+        person.name,
+        person.handle,
+        person.location,
+        person.country || '',
+        person.language || '',
+        person.bio,
+        ...person.interests,
+        ...(person.hobbies || []),
+        ...(person.skills || []),
+        ...(person.goals || []),
+      ]
+        .join(' ')
+        .toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  })
+  .sort((a, b) => {
+    if (activeTab === 'find-people') {
+      if (b.match.score !== a.match.score) return b.match.score - a.match.score;
+    } else {
+      // Global Circle prioritizes international diversity + shared passions
+      const aIntl = (a.person.country || '') !== (currentUser.country || 'Philippines') ? 1 : 0;
+      const bIntl = (b.person.country || '') !== (currentUser.country || 'Philippines') ? 1 : 0;
+      if (bIntl !== aIntl) return bIntl - aIntl;
+      if (b.match.score !== a.match.score) return b.match.score - a.match.score;
+    }
+    return b.person.mutualFriends - a.person.mutualFriends;
+  });
+}, [
+candidates,
+currentUser,
+selectedCountry,
+selectedLanguage,
+selectedCategory,
+interestFilter,
+searchQuery,
+activeTab,
+]);
+const hideCounts = Boolean(currentUser.popularitySettings?.hideFollowerCounts);
+return (
+<div className="space-y-4">
+{/* Header Banner */}
+<section className="bg-[var(--sp-surface)] border border-[var(--sp-border)] rounded-xl p-5">
+<div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+<div>
+<div className="inline-flex items-center gap-1.5 text-xs font-mono-code font-semibold text-[var(--sp-accent-text)] uppercase tracking-wider">
+<Globe className="w-3.5 h-3.5" aria-hidden="true" />
+<span>One world. No language barriers.</span>
+</div>
+<h1 className="mt-1 font-display text-xl font-extrabold text-[var(--sp-ink)]">
+{activeTab === 'find-people' ? 'Find Your People' : 'Global Circle'}
+</h1>
+<p className="text-xs text-[var(--sp-muted)] mt-0.5 max-w-2xl leading-relaxed">
+The world is bigger than your circle. Connect with creators, bakers, artists, designers,
+and builders across borders through shared hobbies, skills, and goals.
+</p>
+</div>
+Code
+<div className="flex flex-wrap items-center gap-2">
+        <div
+          className="flex items-center p-1 bg-[var(--sp-surface-alt)] border border-[var(--sp-border)] rounded-lg"
+          role="tablist"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'circle'}
+            onClick={() =>
+              onNavigate({ page: 'global', tab: 'circle', category: selectedCategory })
+            }
+            className={`px-3 py-1.5 text-xs font-semibold rounded-md inline-flex items-center gap-1.5 cursor-pointer transition-colors ${
+              activeTab === 'circle'
+                ? 'bg-[var(--sp-primary)] text-white'
+                : 'text-[var(--sp-muted)] hover:text-[var(--sp-ink)]'
+            }`}
+          >
+            <Globe className="w-3.5 h-3.5" aria-hidden="true" />
+            <span>Global Circle</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'find-people'}
+            onClick={() =>
+              onNavigate({ page: 'global', tab: 'find-people', category: selectedCategory })
+            }
+            className={`px-3 py-1.5 text-xs font-semibold rounded-md inline-flex items-center gap-1.5 cursor-pointer transition-colors ${
+              activeTab === 'find-people'
+                ? 'bg-[#06B6D4] text-[#0F172A]'
+                : 'text-[var(--sp-muted)] hover:text-[var(--sp-ink)]'
+            }`}
+          >
+            <Compass className="w-3.5 h-3.5" aria-hidden="true" />
+            <span>Find Your People</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    {/* Your Match Profile Strip */}
+    <div className="mt-4 p-3.5 rounded-lg bg-[var(--sp-primary-soft)] border border-[var(--sp-primary-soft-border)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="min-w-0">
+        <div className="text-xs font-bold text-[var(--sp-ink)] flex items-center gap-1.5">
+          <HeartHandshake className="w-3.5 h-3.5 text-[var(--sp-primary-text)]" aria-hidden="true" />
+          <span>Your active matching signals</span>
+        </div>
+        <p className="text-[11px] text-[var(--sp-ink-2)] mt-1 leading-relaxed">
+          <strong>Interests:</strong> {currentUser.interests.join(', ') || 'None set'}
+          {currentUser.hobbies && currentUser.hobbies.length > 0 && (
+            <> · <strong>Hobbies:</strong> {currentUser.hobbies.join(', ')}</>
+          )}
+          {currentUser.skills && currentUser.skills.length > 0 && (
+            <> · <strong>Skills:</strong> {currentUser.skills.join(', ')}</>
+          )}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onEditProfile}
+        className="px-3 py-1.5 text-xs font-semibold rounded-md bg-[var(--sp-surface)] border border-[var(--sp-border)] text-[var(--sp-primary-text)] hover:border-[var(--sp-primary)] inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
+      >
+        <Edit3 className="w-3.5 h-3.5" aria-hidden="true" />
+        <span>Update Interests &amp; Goals</span>
+      </button>
+    </div>
+
+    {/* Filters */}
+    <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+      <div className="relative">
+        <Search
+          className="w-3.5 h-3.5 text-[var(--sp-muted)] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+          aria-hidden="true"
+        />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search people, hobbies, goals..."
+          aria-label="Search global members"
+          className="w-full pl-8 pr-3 py-2 text-xs bg-[var(--sp-input-bg)] border border-[var(--sp-input-border)] rounded-md text-[var(--sp-ink)] placeholder:text-[var(--sp-muted)] focus:outline-none focus:border-[var(--sp-primary)]"
+        />
+      </div>
+
+      <input
+        type="text"
+        value={interestFilter}
+        onChange={(e) => setInterestFilter(e.target.value)}
+        placeholder="Filter by interest or skill (e.g. Baking, Design)..."
+        aria-label="Filter by interest or skill"
+        className="w-full px-3 py-2 text-xs bg-[var(--sp-input-bg)] border border-[var(--sp-input-border)] rounded-md text-[var(--sp-ink)] placeholder:text-[var(--sp-muted)] focus:outline-none focus:border-[var(--sp-primary)]"
+      />
+
+      <select
+        value={selectedCountry}
+        onChange={(e) => setSelectedCountry(e.target.value)}
+        aria-label="Filter by country"
+        className="w-full px-3 py-2 text-xs bg-[var(--sp-input-bg)] border border-[var(--sp-input-border)] rounded-md text-[var(--sp-ink)] focus:outline-none focus:border-[var(--sp-primary)]"
+      >
+        {availableCountries.map((country) => (
+          <option key={country} value={country}>
+            {country === 'All' ? 'All Countries Worldwide' : country}
+          </option>
+        ))}
+      </select>
+
+      <select
+        value={selectedLanguage}
+        onChange={(e) => setSelectedLanguage(e.target.value)}
+        aria-label="Filter by language"
+        className="w-full px-3 py-2 text-xs bg-[var(--sp-input-bg)] border border-[var(--sp-input-border)] rounded-md text-[var(--sp-ink)] focus:outline-none focus:border-[var(--sp-primary)]"
+      >
+        {availableLanguages.map((lang) => (
+          <option key={lang} value={lang}>
+            {lang === 'All' ? 'All Languages' : `Speaks ${lang}`}
+          </option>
+        ))}
+      </select>
+    </div>
+
+    {/* Category Filter Strip */}
+    <div className="mt-3 flex flex-wrap items-center gap-1.5">
+      {(['All', ...DISCOVERY_CATEGORIES] as const).map((cat) => (
+        <button
+          key={cat}
+          type="button"
+          onClick={() => setSelectedCategory(cat)}
+          className={`px-2.5 py-1 text-xs font-semibold rounded-md cursor-pointer transition-colors ${
+            selectedCategory === cat
+              ? 'bg-[var(--sp-primary)] text-white'
+              : 'bg-[var(--sp-surface-alt)] text-[var(--sp-ink-2)] hover:text-[var(--sp-ink)]'
+          }`}
+        >
+          {cat}
+        </button>
+      ))}
+    </div>
+  </section>
+
+  {/* Member Cards Grid */}
+  {rankedMatches.length > 0 ? (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {rankedMatches.map(({ person, match }) => {
+        const sphereCategory = getEffectiveSphereId(person);
+        const countryLabel =
+          person.country || person.location.split(',').pop()?.trim() || 'Global';
+        return (
+          <article
+            key={person.id}
+            className="bg-[var(--sp-surface)] border border-[var(--sp-border)] rounded-xl overflow-hidden flex flex-col justify-between"
+          >
+            <div className="p-4 space-y-3">
+              <div className="flex items-start gap-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    onNavigate({ page: 'profile', userId: person.id, tab: 'timeline' })
+                  }
+                  className="shrink-0 cursor-pointer"
+                >
+                  <UserAvatar user={person} size="lg" rounded="lg" />
+                </button>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onNavigate({ page: 'profile', userId: person.id, tab: 'timeline' })
+                      }
+                      className="font-display text-sm font-bold text-[var(--sp-ink)] hover:text-[var(--sp-primary-text)] hover:underline truncate cursor-pointer text-left"
+                    >
+                      {person.name}
+                    </button>
+                    <SphereIdBadge
+                      category={sphereCategory}
+                      onOpenSphereId={onOpenSphereId}
+                    />
+                  </div>
+                  <div className="text-xs text-[var(--sp-muted)] truncate">
+                    {person.handle}
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-[var(--sp-ink-2)]">
+                    <span className="inline-flex items-center gap-1">
+                      <MapPin className="w-3 h-3 text-[var(--sp-accent-text)]" aria-hidden="true" />
+                      <span>{countryLabel}</span>
+                    </span>
+                    {person.language && (
+                      <span className="inline-flex items-center gap-1">
+                        <Languages className="w-3 h-3 text-[var(--sp-primary-text)]" aria-hidden="true" />
+                        <span>{person.language}</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-xs text-[var(--sp-ink-2)] leading-relaxed line-clamp-2">
+                {person.status}
+              </p>
+
+              {/* Shared Passions / Mutual Interests */}
+              <div className="p-2.5 rounded-lg bg-[var(--sp-surface-alt)] border border-[var(--sp-border-subtle)] space-y-1.5">
+                {match.allShared.length > 0 ? (
+                  <>
+                    <div className="text-[11px] font-bold text-[var(--sp-accent-text)]">
+                      {match.allShared.length} shared{' '}
+                      {match.allShared.length === 1 ? 'interest' : 'interests'}
+                    </div>
+                    <div className="text-[11px] text-[var(--sp-ink)] leading-snug">
+                      {match.allShared.slice(0, 5).join(' · ')}
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-[11px] text-[var(--sp-muted)]">
+                    <strong>Focus:</strong> {person.interests.slice(0, 4).join(' · ')}
+                  </div>
+                )}
+
+                {person.goals && person.goals.length > 0 && (
+                  <div className="text-[11px] text-[var(--sp-muted)] line-clamp-1 pt-1 border-t border-[var(--sp-border-subtle)]">
+                    Goal: {person.goals[0]}
+                  </div>
+                )}
+              </div>
+
+              {!hideCounts && (
+                <div className="text-[11px] text-[var(--sp-muted)] tabular-nums">
+                  {person.friendCount} connections · {person.mutualFriends} mutual
+                </div>
+              )}
+            </div>
+
+            <div className="px-4 py-3 bg-[var(--sp-surface-alt)] border-t border-[var(--sp-border-subtle)] flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => onToggleFriend(person.id)}
+                className={`flex-1 py-2 px-3 text-xs font-semibold rounded-md flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer transition-colors ${
+                  person.friendship === 'friends'
+                    ? 'bg-[var(--sp-surface)] border border-[var(--sp-border)] text-[var(--sp-ink)] hover:bg-[var(--sp-primary-soft)]'
+                    : person.friendship === 'requested_outgoing'
+                      ? 'bg-[var(--sp-primary-soft)] border border-[var(--sp-primary-soft-border)] text-[var(--sp-primary-text)]'
+                      : 'bg-[var(--sp-primary)] hover:bg-[var(--sp-primary-hover)] text-white'
+                }`}
+              >
+                {person.friendship === 'friends' ? (
+                  <>
+                    <UserCheck className="w-3.5 h-3.5" aria-hidden="true" />
+                    <span>Connected</span>
+                  </>
+                ) : person.friendship === 'requested_outgoing' ? (
+                  <span>Requested</span>
+                ) : (
+                  <>
+                    <UserPlus className="w-3.5 h-3.5" aria-hidden="true" />
+                    <span>Connect</span>
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => onMessageUser(person.id)}
+                className="py-2 px-3 bg-[var(--sp-accent-soft)] border border-[var(--sp-accent-soft-border)] text-[var(--sp-accent-text)] hover:opacity-90 text-xs font-semibold rounded-md flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
+              >
+                <MessageCircle className="w-3.5 h-3.5" aria-hidden="true" />
+                <span>Message</span>
+              </button>
+            </div>
+          </article>
+        );
+      })}
+    </div>
+  ) : (
+    <div className="bg-[var(--sp-surface)] border border-[var(--sp-border)] rounded-xl p-8 text-center">
+      <p className="text-sm font-semibold text-[var(--sp-ink)]">
+        No Global Circle members match these filters yet.
+      </p>
+      <button
+        type="button"
+        onClick={() => {
+          setSearchQuery('');
+          setInterestFilter('');
+          setSelectedCountry('All');
+          setSelectedLanguage('All');
+          setSelectedCategory('All');
+        }}
+        className="mt-3 px-4 py-2 text-xs font-semibold rounded-md bg-[var(--sp-primary)] text-white hover:bg-[var(--sp-primary-hover)] cursor-pointer"
+      >
+        Reset Global Filters
+      </button>
+    </div>
+  )}
+</div>
+);
+};
+Gemini 4 Hydrogen
+Ran for 3m 18s
+
+Action history
+Here are key actions taken for the app:
+
+Edited 14 files
+metadata.json
+index.html
+src/index.css
+src/types/social.ts
+src/utils/discovery.ts
+src/data/mockSocial.ts
+src/components/Media.tsx
+src/components/SphereIdBadge.tsx
+src/components/GlobalCircleView.tsx
+src/components/ProfileView.tsx
+src/components/FeedView.tsx
+src/components/MessagesView.tsx
+src/components/Modals.tsx
+src/App.tsx
+Built
+Built the Sphere global community application around GlobalCircleView, with full interest matching, cross-border discovery, member profiles, global notes, and direct messaging.
+Implemented Features
+Global Circle & Find Your People (GlobalCircleView): Interactive discovery grid with Global Circle and Find Your People ranking modes, keyword search, interest/skill filter, country and language dropdowns, category filter tabs, shared-interest matching, connection toggling (Connect / Requested / Connected), and direct messaging launch.
+Interest Matching Engine & Sphere ID (discovery.ts, SphereIdBadge): Weighted overlap scoring across interests, hobbies, skills, and categories, paired with clickable SphereIdBadge craft identity indicators and an interactive SphereIdModal.
+Member Profiles (ProfileView): Full profile header with portrait avatar fallback (UserAvatar), shared signal breakdown, Timeline (with inline note publishing for the current user), About & Signals, and Connections tabs.
+Global Notes Feed (FeedView): Chronological studio dispatches with category filtering, bilingual post translation toggles, likes, saves, comments, and a note composer.
+Direct Messages (MessagesView): Multi-thread messaging workspace with live reply sending and an Auto-Translate toggle displaying original and translated messages.
+Signal & Privacy Editor (EditProfileModal): Live editing for interests, hobbies, skills, goals, languages, location, categories, and the hideFollowerCounts option, persisted to localStorage alongside light/dark theme support.
+Verification
+compile_applet succeeded (vite build).
+lint_applet succeeded (tsc --noEmit).
+Checkpoint
+{
+"name": "NexSphere",
+"description": "Connect with your circle — explore profiles, news feed, friends, photos, groups, messages, and testimonials.",
+"requestFramePermissions": [],
+"majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sphere. — One world. No language barriers.</title>
+<meta name="description" content="The world is bigger than your circle. Sphere. connects communities locally and globally with real-time Universal Language translation, Sphere ID verification, interest discovery, and zero popularity pressure." />
+<meta property="og:title" content="Sphere. — One world. No language barriers." />
+<meta property="og:description" content="The world is bigger than your circle. Connect across languages, discover people by shared passions, and keep conversations meaningful." />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary_large_image" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+</head>
+<body>
+<div id="root"></div>
+<script type="module" src="/src/main.tsx"></script>
+</body>
+</html>
+export type PrivacyLevel = 'public' | 'friends_of_friends' | 'friends_only' | 'only_me';
+export type ReactionType = 'heart' | 'clap' | 'laugh' | 'fire';
+export type VideoFormat = 'short' | 'long';
+export type SphereIdCategory = 'verified_individual' | 'verified_organization' | 'unverified';
+export type LocationScope = 'nearby' | 'city' | 'country' | 'global';
+export type DiscoveryCategory =
+| 'Technology'
+| 'Gaming'
+| 'Art'
+| 'Music'
+| 'Travel'
+| 'Business'
+| 'Education'
+| 'Sports'
+| 'Lifestyle';
+export type AnonymousTopic =
+| 'Personal Experiences'
+| 'Community Concerns'
+| 'Advice & Mentorship'
+| 'Ideas & Creativity'
+| 'General Discussions';
+export interface PopularitySettings {
+hidePublicLikeCounts: boolean;
+hideFollowerCounts: boolean;
+disableProfileEngagementStats: boolean;
+}
+export interface SphereIdVerificationRequest {
+id: string;
+applicantUserId: string;
+applicantName: string;
+category: 'verified_individual' | 'verified_organization';
+entityName: string;
+country: string;
+publicLink: string;
+notes: string;
+documentSummary: {
+fileName: string;
+fileType: string;
+fileSizeBytes: number;
+sha256Short: string;
+};
+status: 'pending' | 'approved' | 'rejected';
+submittedAt: string;
+reviewedAt?: string;
+reviewNote?: string;
+}
+export interface AnonymousReport {
+id: string;
+reporterId: string;
+reason: string;
+createdAt: string;
+}
+export interface AnonymousReply {
+id: string;
+alias: string;
+authorId: string;
+text: string;
+createdAt: string;
+language?: string;
+supportiveVotes: string[];
+hidden?: boolean;
+reports?: AnonymousReport[];
+}
+export interface AnonymousPost {
+id: string;
+topic: AnonymousTopic;
+alias: string;
+authorId: string;
+title: string;
+content: string;
+createdAt: string;
+language?: string;
+supportiveVotes: string[];
+replies: AnonymousReply[];
+hidden?: boolean;
+reports: AnonymousReport[];
+}
+export type NavRoute =
+| { page: 'home'; hashtag?: string; location?: string }
+| { page: 'global'; tab?: 'circle' | 'find-people'; category?: DiscoveryCategory | 'All' }
+| { page: 'anonymous'; topic?: AnonymousTopic | 'All' }
+| { page: 'profile'; userId: string; tab?: 'timeline' | 'about' | 'friends' | 'photos' | 'testimonials' }
+| { page: 'friends'; tab?: 'all' | 'requests' | 'discover' }
+| { page: 'marketplace'; category?: string; listingId?: string }
+| { page: 'messages'; threadId?: string }
+| {
+page: 'discover';
+tab?: 'trending' | 'videos' | 'live' | 'pages' | 'groups' | 'photos' | 'testimonials';
+hashtag?: string;
+groupId?: string;
+pageId?: string;
+}
+| { page: 'search'; query: string; filter?: 'all' | 'people' | 'pages' | 'posts' | 'groups' | 'photos' };
+export type FriendshipStatus = 'friends' | 'requested_outgoing' | 'requested_incoming' | 'none';
+export interface UserProfile {
+id: string;
+name: string;
+handle: string;
+avatar?: string;
+avatarColor: string;
+coverImage?: string;
+status: string;
+location: string;
+country?: string;
+language?: string;
+preferredLanguage?: string;
+autoTranslate?: boolean;
+interests: string[];
+hobbies?: string[];
+skills?: string[];
+goals?: string[];
+categories?: DiscoveryCategory[];
+quote: string;
+bio: string;
+joinedDate: string;
+friendCount: number;
+photoCount: number;
+groupCount: number;
+friendship: FriendshipStatus;
+mutualFriends: number;
+privacy: PrivacyLevel;
+sphereIdCategory?: SphereIdCategory;
+popularitySettings?: PopularitySettings;
+locationDiscoveryEnabled?: boolean;
+preferredScope?: LocationScope;
+email?: string;
+mobile?: string;
+password?: string;
+birthday?: string;
+gender?: string;
+verified?: boolean;
+}
+export interface PostComment {
+id: string;
+authorId: string;
+text: string;
+createdAt: string;
+likes: number;
+likedByMe?: boolean;
+language?: string;
+}
+export interface PostVibe {
+kind: 'Listening' | 'At' | 'Creating' | 'Reading' | 'Throwback';
+label: string;
+}
+export interface PostVideo {
+src: string;
+format: VideoFormat;
+title?: string;
+durationLabel?: string;
+poster?: string;
+}
+export interface LiveStreamComment {
+id: string;
+authorId: string;
+text: string;
+timestamp: string;
+}
+export interface LiveStreamData {
+id: string;
+title: string;
+isLive: boolean;
+viewerCount: number;
+durationLabel: string;
+coverImage?: string;
+chatMessages: LiveStreamComment[];
+}
+export interface SocialPost {
+id: string;
+authorId: string;
+targetProfileId?: string;
+groupId?: string;
+pageId?: string;
+postAsPage?: boolean;
+content: string;
+location?: string;
+country?: string;
+language?: string;
+createdAt: string;
+likes: string[]; // user IDs who liked (synced with heart/reactions)
+reactions?: Partial<Record<ReactionType, string[]>>;
+comments: PostComment[];
+photoId?: string;
+video?: PostVideo;
+marketplaceItemId?: string;
+liveStream?: LiveStreamData;
+sharedPostId?: string;
+sharesCount: number;
+privacy?: PrivacyLevel;
+vibe?: PostVibe;
+}
+export interface PhotoItem {
+id: string;
+ownerId: string;
+pageId?: string;
+postAsPage?: boolean;
+groupId?: string;
+src: string;
+caption: string;
+location: string;
+album: string;
+createdAt: string;
+likes: string[];
+reactions?: Partial<Record<ReactionType, string[]>>;
+comments: PostComment[];
+privacy?: PrivacyLevel;
+}
+export interface MarketplaceItem {
+id: string;
+sellerId: string;
+title: string;
+price: number;
+currency: string;
+category: string;
+condition: 'Brand New' | 'Like New' | 'Good' | 'Vintage';
+location: string;
+description: string;
+imageSrc?: string;
+createdAt: string;
+privacy: PrivacyLevel;
+sold?: boolean;
+}
+export interface GroupItem {
+id: string;
+name: string;
+category: string;
+description: string;
+location: string;
+privacy?: 'public' | 'private';
+creatorId?: string;
+coverImage?: string;
+accentColor: string;
+memberIds: string[];
+joined: boolean;
+totalMembers: number;
+}
+export interface PageItem {
+id: string;
+name: string;
+handle: string;
+category: string;
+description: string;
+location: string;
+ownerId: string;
+avatar?: string;
+coverImage?: string;
+accentColor: string;
+followerIds: string[];
+following: boolean;
+totalFollowers: number;
+verified?: boolean;
+sphereIdCategory?: SphereIdCategory;
+}
+export interface TestimonialItem {
+id: string;
+authorId: string;
+recipientId: string;
+quote: string;
+createdAt: string;
+}
+export interface DirectMessage {
+id: string;
+senderId: string;
+text: string;
+timestamp: string;
+sharedPostId?: string;
+language?: string;
+}
+export interface MessageThread {
+id: string;
+participantIds: string[];
+title?: string;
+unreadCount: number;
+messages: DirectMessage[];
+}
+import {
+AnonymousTopic,
+DiscoveryCategory,
+LocationScope,
+SocialPost,
+SphereIdCategory,
+UserProfile,
+} from '../types/social';
+export const DISCOVERY_CATEGORIES: DiscoveryCategory[] = [
+'Technology',
+'Gaming',
+'Art',
+'Music',
+'Travel',
+'Business',
+'Education',
+'Sports',
+'Lifestyle',
+];
+export const ANONYMOUS_TOPICS: AnonymousTopic[] = [
+'Personal Experiences',
+'Community Concerns',
+'Advice & Mentorship',
+'Ideas & Creativity',
+'General Discussions',
+];
+export const LOCATION_SCOPE_OPTIONS: {
+id: LocationScope;
+label: string;
+description: string;
+}[] = [
+{
+id: 'nearby',
+label: 'Nearby',
+description: 'Posts from your town and neighboring communities',
+},
+{
+id: 'city',
+label: 'Municipality / City',
+description: 'Posts strictly within your city or municipality',
+},
+{
+id: 'country',
+label: 'Country',
+description: 'Posts from across your country',
+},
+{
+id: 'global',
+label: 'Global',
+description: 'Posts from Sphere. members worldwide',
+},
+];
+export function extractCityAndCountry(user: Pick<UserProfile, 'location' | 'country'>): {
+city: string;
+province: string;
+country: string;
+} {
+const parts = (user.location || '')
+.split(',')
+.map((p) => p.trim())
+.filter(Boolean);
+const city = parts[0] || '';
+const country = user.country || (parts.length >= 2 ? parts[parts.length - 1] : 'Philippines');
+const province = parts.length >= 3 ? parts[1] : parts.length === 2 ? parts[1] : '';
+return { city, province, country };
+}
+// Nearby region clustering without ever storing or exposing exact street addresses
+const NEARBY_CLUSTER_TERMS: Record<string, string[]> = {
+labo: ['labo', 'daet', 'camarines norte', 'bagasbas', 'vinzons', 'talisay', 'bicol'],
+daet: ['daet', 'labo', 'camarines norte', 'bagasbas', 'mercedes', 'bicol'],
+manila: ['manila', 'quezon city', 'makati', 'pasig', 'bgc', 'metro manila'],
+tokyo: ['tokyo', 'shibuya', 'shinjuku', 'yokohama'],
+seoul: ['seoul', 'seongsu', 'hongdae', 'gangnam'],
+berlin: ['berlin', 'potsdam'],
+madrid: ['madrid'],
+dakar: ['dakar'],
+};
+export function matchesLocationScope(
+post: SocialPost,
+author: UserProfile | undefined,
+currentUser: UserProfile,
+scope: LocationScope
+): boolean {
+if (scope === 'global' || currentUser.locationDiscoveryEnabled === false) {
+return true;
+}
+const userGeo = extractCityAndCountry(currentUser);
+const postLocationRaw = (post.location || author?.location || '').toLowerCase();
+const postCountryRaw = (post.country || author?.country || '').toLowerCase();
+if (scope === 'country') {
+const userCountry = userGeo.country.toLowerCase();
+if (!userCountry) return true;
+return (
+postCountryRaw.includes(userCountry) ||
+postLocationRaw.includes(userCountry) ||
+(userCountry === 'philippines' &&
+(postLocationRaw.includes('labo') ||
+postLocationRaw.includes('daet') ||
+postLocationRaw.includes('manila') ||
+postLocationRaw.includes('camarines norte')))
+);
+}
+if (scope === 'city') {
+const cityKey = userGeo.city.toLowerCase();
+if (!cityKey) return true;
+return postLocationRaw.includes(cityKey);
+}
+// 'nearby'
+const cityKey = userGeo.city.toLowerCase();
+const cluster = NEARBY_CLUSTER_TERMS[cityKey] || [cityKey, userGeo.province.toLowerCase()].filter(Boolean);
+return cluster.some((term) => term && postLocationRaw.includes(term));
+}
+export interface InterestMatchResult {
+score: number;
+sharedInterests: string[];
+sharedHobbies: string[];
+sharedSkills: string[];
+sharedGoals: string[];
+sharedCategories: DiscoveryCategory[];
+allShared: string[];
+}
+function intersectNormalized(a: string[] = [], b: string[] = []): string[] {
+const bSet = new Set(b.map((item) => item.trim().toLowerCase()));
+const seen = new Set<string>();
+const matches: string[] = [];
+for (const item of a) {
+const norm = item.trim().toLowerCase();
+if (norm && bSet.has(norm) && !seen.has(norm)) {
+seen.add(norm);
+matches.push(item.trim());
+}
+}
+return matches;
+}
+export function computeInterestMatch(viewer: UserProfile, candidate: UserProfile): InterestMatchResult {
+const sharedInterests = intersectNormalized(viewer.interests, candidate.interests);
+const sharedHobbies = intersectNormalized(viewer.hobbies || viewer.interests, candidate.hobbies || candidate.interests);
+const sharedSkills = intersectNormalized(viewer.skills || [], candidate.skills || []);
+const sharedGoals = intersectNormalized(viewer.goals || [], candidate.goals || []);
+const viewerCats = viewer.categories || [];
+const candCats = candidate.categories || [];
+const sharedCategories = viewerCats.filter((c) => candCats.includes(c));
+const seenAll = new Set<string>();
+const allShared: string[] = [];
+for (const item of [...sharedInterests, ...sharedHobbies, ...sharedSkills, ...sharedCategories]) {
+const key = item.toLowerCase();
+if (!seenAll.has(key)) {
+seenAll.add(key);
+allShared.push(item);
+}
+}
+const score =
+sharedInterests.length * 3 +
+sharedHobbies.length * 2 +
+sharedSkills.length * 3 +
+sharedGoals.length * 4 +
+sharedCategories.length * 2;
+return {
+score,
+sharedInterests,
+sharedHobbies,
+sharedSkills,
+sharedGoals,
+sharedCategories,
+allShared,
+};
+}
+export function getEffectiveSphereId(user?: Pick<UserProfile, 'sphereIdCategory' | 'verified'>): SphereIdCategory {
+if (!user) return 'unverified';
+if (user.sphereIdCategory) return user.sphereIdCategory;
+return user.verified ? 'verified_individual' : 'unverified';
+}
+export function getSphereIdLabel(category: SphereIdCategory): string {
+switch (category) {
+case 'verified_individual':
+return 'Verified Individual';
+case 'verified_organization':
+return 'Verified Organization';
+default:
+return 'Unverified Account';
+}
+}
+const ALIAS_ADJECTIVES = [
+'Quiet',
+'Cobalt',
+'Harbor',
+'North',
+'Amber',
+'Cedar',
+'Misty',
+'Lunar',
+'Silver',
+'Breeze',
+];
+const ALIAS_NOUNS = [
+'Wave',
+'Lantern',
+'Horizon',
+'Compass',
+'Echo',
+'Pine',
+'Sketch',
+'River',
+'Cloud',
+'Signal',
+];
+export function generateAnonymousAlias(seedInput: string): string {
+let hash = 0;
+for (let i = 0; i < seedInput.length; i += 1) {
+hash = (hash * 31 + seedInput.charCodeAt(i)) >>> 0;
+}
+const adj = ALIAS_ADJECTIVES[hash % ALIAS_ADJECTIVES.length];
+const noun = ALIAS_NOUNS[Math.floor(hash / 7) % ALIAS_NOUNS.length];
+const num = 100 + (hash % 899);
+return ${adj}${noun}-${num};
+}
+export async function hashFileMetadata(file: File): Promise<string> {
+try {
+const buffer = await file.slice(0, 64 * 1024).arrayBuffer();
+const digest = await crypto.subtle.digest('SHA-256', buffer);
+const bytes = Array.from(new Uint8Array(digest));
+return bytes
+.slice(0, 8)
+.map((b) => b.toString(16).padStart(2, '0'))
+.join('');
+} catch {
+return ${file.size.toString(16)}${Date.now().toString(16).slice(-6)};
+}
+}
+import React, { useState } from 'react';
+import { BadgeCheck, Building2, ShieldAlert } from 'lucide-react';
+import { SphereIdCategory } from '../types/social';
+import { getSphereIdLabel } from '../utils/discovery';
+interface SphereIdBadgeProps {
+category: SphereIdCategory;
+size?: 'sm' | 'md';
+showUnverified?: boolean;
+showLabel?: boolean;
+onOpenSphereId?: () => void;
+}
+export const SphereIdBadge: React.FC<SphereIdBadgeProps> = ({
+category,
+size = 'sm',
+showUnverified = false,
+showLabel = false,
+onOpenSphereId,
+}) => {
+const [openInfo, setOpenInfo] = useState(false);
+if (category === 'unverified' && !showUnverified) {
+return null;
+}
+const label = getSphereIdLabel(category);
+const iconClass = size === 'md' ? 'w-4 h-4' : 'w-3.5 h-3.5';
+const colorClass =
+category === 'verified_organization'
+? 'text-[var(--sp-accent-text)]'
+: category === 'verified_individual'
+? 'text-[var(--sp-primary-text)]'
+: 'text-[var(--sp-muted)]';
+return (
+<span className="relative inline-flex items-center">
+<button
+type="button"
+onClick={(e) => {
+e.stopPropagation();
+setOpenInfo((prev) => !prev);
+}}
+title={${label} — Click for Sphere ID details}
+aria-label={label}
+className={inline-flex items-center gap-1 ${colorClass} hover:opacity-80 cursor-pointer rounded focus-visible:outline-2 focus-visible:outline-[var(--sp-primary)]}
+>
+{category === 'verified_organization' ? (
+<Building2 className={${iconClass} shrink-0} aria-hidden="true" />
+) : category === 'verified_individual' ? (
+<BadgeCheck className={${iconClass} shrink-0} aria-hidden="true" />
+) : (
+<ShieldAlert className={${iconClass} shrink-0} aria-hidden="true" />
+)}
+{showLabel && (
+<span className="text-[11px] font-semibold whitespace-nowrap">{label}</span>
+)}
+</button>
+Code
+{openInfo && (
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className="absolute left-0 top-full mt-1.5 z-40 w-64 p-3 rounded-lg bg-[var(--sp-surface)] border border-[var(--sp-border)] shadow-lg text-left"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className={`text-xs font-bold ${colorClass}`}>{label}</span>
+        <button
+          type="button"
+          onClick={() => setOpenInfo(false)}
+          className="text-[11px] font-semibold text-[var(--sp-muted)] hover:text-[var(--sp-ink)] cursor-pointer"
+        >
+          Close
+        </button>
+      </div>
+      <p className="mt-1.5 text-[11px] leading-relaxed text-[var(--sp-ink-2)]">
+        {category === 'verified_organization'
+          ? 'This account completed Sphere ID organization review.'
+          : category === 'verified_individual'
+            ? 'This account completed Sphere ID individual review.'
+            : 'This account has not completed Sphere ID verification.'}
+      </p>
+      <p className="mt-1.5 text-[10px] leading-relaxed text-[var(--sp-muted)] border-t border-[var(--sp-border-subtle)] pt-1.5">
+        Note: Sphere ID identifies reviewed accounts only and does not guarantee personal safety or commercial authenticity.
+      </p>
+      {onOpenSphereId && (
+        <button
+          type="button"
+          onClick={() => {
+            setOpenInfo(false);
+            onOpenSphereId();
+          }}
+          className="mt-2 text-[11px] font-semibold text-[var(--sp-primary-text)] hover:underline cursor-pointer"
+        >
+          Manage Sphere ID →
+        </button>
+      )}
+    </div>
+  )}
+</span>
+);
+};
+import React, { useEffect, useRef, useState } from 'react';
+import { Languages, RotateCcw } from 'lucide-react';
+import { TranslationResult, translateText } from '../utils/translate';
+interface TranslateControlProps {
+text: string;
+preferredLanguage?: string;
+sourceLanguageHint?: string;
+autoTranslate?: boolean;
+variant?: 'default' | 'inverted' | 'compact';
+className?: string;
+}
+export const TranslateControl: React.FC<TranslateControlProps> = ({
+text,
+preferredLanguage = 'English',
+sourceLanguageHint,
+autoTranslate = false,
+variant = 'default',
+className = '',
+}) => {
+const [translation, setTranslation] = useState<TranslationResult | null>(null);
+const [showTranslated, setShowTranslated] = useState(false);
+const [loading, setLoading] = useState(false);
+const [error, setError] = useState<string | null>(null);
+const autoTriggeredKeyRef = useRef<string>('');
+const trimmed = text.trim();
+const targetLang = preferredLanguage || 'English';
+const hintDiffersFromTarget = Boolean(
+sourceLanguageHint &&
+!sourceLanguageHint.toLowerCase().includes(targetLang.toLowerCase()) &&
+!(targetLang.toLowerCase() === 'english' && sourceLanguageHint.toLowerCase().includes('english'))
+);
+const hasNonAscii = /[^\u0000-\u007F]/.test(trimmed);
+const runTranslate = async () => {
+if (!trimmed || loading) return;
+if (translation && !error) {
+setShowTranslated(true);
+return;
+}
+setLoading(true);
+setError(null);
+try {
+const res = await translateText(trimmed, targetLang);
+setTranslation(res);
+setShowTranslated(true);
+} catch (err) {
+setError(err instanceof Error ? err.message : 'Translation failed.');
+} finally {
+setLoading(false);
+}
+};
+useEffect(() => {
+setTranslation(null);
+setShowTranslated(false);
+setError(null);
+}, [trimmed, targetLang]);
+useEffect(() => {
+const key = ${trimmed}::${targetLang};
+if (
+autoTranslate &&
+trimmed.length >= 6 &&
+(hintDiffersFromTarget || hasNonAscii) &&
+autoTriggeredKeyRef.current !== key
+) {
+autoTriggeredKeyRef.current = key;
+void runTranslate();
+}
+}, [autoTranslate, trimmed, targetLang, hintDiffersFromTarget, hasNonAscii]);
+if (!trimmed) return null;
+const isInverted = variant === 'inverted';
+const triggerClass = isInverted
+? 'text-[11px] font-semibold text-white/85 hover:text-white inline-flex items-center gap-1 cursor-pointer'
+: 'text-[11px] font-semibold text-[var(--sp-accent-text)] hover:underline inline-flex items-center gap-1 cursor-pointer';
+return (
+<div className={className}>
+{!showTranslated ? (
+<div className="flex flex-wrap items-center gap-2">
+<button
+type="button"
+onClick={runTranslate}
+disabled={loading}
+className={triggerClass}
+>
+<Languages className="w-3 h-3 shrink-0" aria-hidden="true" />
+<span>
+{loading
+? 'Translating...'
+: Translate to ${targetLang}}
+</span>
+</button>
+{error && (
+<span
+className={text-[11px] ${ isInverted ? 'text-[#FCA5A5]' : 'text-[#ef4444]' }}
+>
+{error}
+</span>
+)}
+</div>
+) : translation ? (
+<div
+className={mt-1.5 rounded-lg px-3 py-2 text-xs border ${ isInverted ? 'bg-[#3730A3] border-[#6366F1] text-white' : 'bg-[var(--sp-accent-soft)] border-[var(--sp-accent-soft-border)] text-[var(--sp-ink)]' }}
+>
+<div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+<span
+className={text-[10px] font-mono-code font-semibold uppercase tracking-wide ${ isInverted ? 'text-[#A5F3FC]' : 'text-[var(--sp-accent-text)]' }}
+>
+{translation.sameLanguage
+? Already in ${targetLang}
+: Translated from ${translation.detectedLanguage} → ${targetLang}}
+</span>
+<button
+type="button"
+onClick={() => setShowTranslated(false)}
+className={text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer hover:underline ${ isInverted ? 'text-white/90' : 'text-[var(--sp-primary-text)]' }}
+>
+<RotateCcw className="w-3 h-3" aria-hidden="true" />
+<span>See Original</span>
+</button>
+</div>
+<p className="leading-relaxed whitespace-pre-line">{translation.translatedText}</p>
+</div>
+) : null}
+</div>
+);
+};
+Paste November 15, 2026 - 3:31PM
+Paste November 15, 2026 - 3:31PM
+Paste November 15, 2026 - 3:31PM
+Paste November 15, 2026 - 3:31PM
+Gemini 4 Hydrogen
+Ran for 6m 25s
+
+Action history
+Here are key actions taken for the app:
+
+Installed 1 package
+Edited 20 files
+package.json
+metadata.json
+index.html
+src/index.css
+server.ts
+src/types/social.ts
+src/utils/discovery.ts
+src/utils/translate.ts
+src/data/mockSocial.ts
+src/components/Media.tsx
+src/components/SphereIdBadge.tsx
+src/components/TranslateControl.tsx
+src/components/FeedView.tsx
+src/components/AnonymousView.tsx
+src/components/ProfileView.tsx
+src/components/MessagesView.tsx
+src/components/DiscoverHubView.tsx
+src/components/Modals.tsx
+src/components/GlobalCircleView.tsx
+src/App.tsx
+Built
+Sphere. has been upgraded and wired across all views, state persistence, and the server-side Universal Language translation endpoint.
+Implemented Features
+Universal Language Translation (/api/translate & TranslateControl):
+Express backend route using @google/genai (gemini-4-hydrogen) with structured JSON output (detectedLanguage, translatedText, sameLanguage).
+Inline translation toggle across feed posts, comments, Global Circle statuses, profile bios, testimonials, Anonymous Safe Topics, and direct/group messages, with in-memory caching and auto-translate support based on the user's preferred language.
+Community Feed & Location Scope (FeedView):
+Scope switching across Nearby, Municipality / City, Country, and Global (matchesLocationScope), post composer with privacy selector, hashtag filtering via trending topics, multi-reaction bar (Heart, Appreciate, Inspire, Smile) respecting PopularitySettings, inline comments, and incoming circle request actions.
+Global Circle & Find Your People (GlobalCircleView):
+Member discovery across international regions with country, language, category, and interest/hobby/skill/goal filtering, shared-signal match scoring (computeInterestMatch), connection toggles, and direct messaging.
+Anonymous Safe Topics (AnonymousView):
+Deterministic alias posting and replying (generateAnonymousAlias), topic filtering, supportive votes, content flagging, and inline translation.
+Directory, Marketplace & Profiles (DiscoverHubView, ProfileView):
+Pages (follow/unfollow), Groups (join/leave), Photos, and Marketplace listings with category filters and seller messaging, plus 5-tab member profiles (timeline, about, friends, photos, testimonials).
+Messages & Account Modals (MessagesView, Modals):
+1-to-1 and group threads with unread clearing, profile/signal/language & No Popularity Pressure settings (EditProfileModal), and Sphere ID verification review queue + local SHA-256 document hashing (SphereIdModal).
+Verification
+compile_applet (npm run build) succeeded.
+lint_applet (tsc --noEmit) passed with zero errors.
+restart_dev_server restarted the Express + Vite server (tsx server.ts) on port 3000.
+Checkpoint
+SPHERE. – SOCIAL MEDIA FEATURE ENHANCEMENT
+Enhance the existing Sphere. social media platform by adding the following features and functionalities. Integrate everything seamlessly into the current application without rebuilding it from scratch or breaking any existing features.
+IMPORTANT:
+Maintain the existing Sphere. branding, design, database, authentication, navigation, and application architecture. All features must be fully functional, responsive, and connected to the existing backend. Do not create UI-only mockups or placeholder buttons.
+FLOATING MESSENGER CHAT SYSTEM
+Implement a Messenger-style floating chat system.
+Chat windows must pop up at the bottom-right corner of the screen.
+Users can chat while browsing other sections of Sphere.
+Support multiple simultaneous chat windows.
+Allow users to minimize, maximize, restore, and close chat windows.
+Display profile pictures, names, online status, unread message counts, and message notifications.
+Support real-time messaging, typing indicators, timestamps, and read receipts if supported by the backend.
+Prevent duplicate chat windows for the same conversation.
+Maintain chat state while navigating between pages.
+On mobile, use a responsive full-screen or compact chat interface.
+Maintain Sphere.'s own branding while using Messenger-inspired behavior.
+PROFILE PHOTO AND COVER PHOTO MANAGEMENT
+Allow users to manage their profile photos and cover photos.
+Features:
+Upload new profile photos and cover photos.
+Edit, crop, reposition, and adjust uploaded photos.
+Change profile and cover photos anytime.
+Delete current profile and cover photos.
+Preview changes before saving.
+Provide confirmation before deleting.
+Allow users to choose an existing uploaded photo as their profile or cover photo.
+Automatically update the photo across the entire platform, including posts, comments, messaging, and profile pages.
+Maintain proper image quality and responsive display.
+Use secure file storage and appropriate upload validation.
+PHOTO AND VIDEO ALBUM FOLDERS
+Create a media organization system where users can create folders or albums for their uploaded photos and videos.
+Features:
+Create custom photo and video albums.
+Allow users to name, edit, rename, and delete albums.
+Upload multiple photos and videos into a selected album.
+Move media between albums.
+Select an album when uploading media.
+Display albums on the user's profile.
+Support album cover photos.
+Allow users to manage album privacy settings, such as Public, Friends, or Only Me, where applicable.
+Allow users to delete or edit individual media items.
+Maintain media organization without breaking existing posts or media attachments.
+PAID ADVERTISEMENT / PROMOTED POSTS
+Implement a paid advertising feature that allows users, businesses, and eligible creators to promote their posts on Sphere.
+Features:
+Add a "Boost Post" or "Promote Post" option.
+Allow users to select an existing post for promotion.
+Set advertising objectives, such as Reach, Engagement, or Website Traffic.
+Configure target audience based on country, location, interests, and demographics where legally permitted.
+Set advertising budget and campaign duration.
+Display estimated reach and campaign details.
+Create an ad campaign submission and approval workflow.
+Provide an advertising dashboard showing campaign status, budget, impressions, reach, clicks, and engagement.
+Clearly label promoted content as "Sponsored" or "Ad".
+Implement admin approval, rejection, and moderation controls.
+Prevent unauthorized or unapproved advertisements from appearing in the feed.
+Integrate a secure payment system only if supported by the existing backend.
+Never simulate successful payments or advertising analytics.
+PROFILE TAGGING AND WALL SHARING PRIVACY CONTROLS
+Create privacy settings that allow users to enable or disable profile tagging and sharing posts directly to their profile wall.
+Profile Tagging Settings
+Allow users to:
+Enable or disable profile tagging.
+Choose who can tag them: Everyone, Friends, or No One, where applicable.
+Require approval before tagged posts appear on their profile.
+Review pending tags.
+Approve or reject tagging requests.
+Remove themselves from tagged posts when permitted.
+Profile Wall Sharing Settings
+Allow users to:
+Enable or disable other users' ability to share posts directly to their profile wall.
+Choose who can share posts to their profile: Everyone, Friends, or No One, where applicable.
+Prevent unauthorized posts from appearing on their profile.
+Require approval before shared posts appear on their profile wall.
+Remove posts shared by other users from their profile.
+Control these settings through their Privacy Settings.
+Enforcement
+Apply privacy settings consistently across the entire application.
+Ensure restrictions are enforced on both the frontend and backend.
+Do not allow users to bypass privacy settings through direct API requests.
+Notify users when tagging or wall-sharing requests require approval.
+Maintain proper permissions and security.
+GENERAL REQUIREMENTS
+Integrate all features into the existing Sphere. application.
+Use the current backend, database, and authentication system.
+Ensure all features are functional, not merely visual.
+Maintain responsive desktop, tablet, and mobile interfaces.
+Use modular, reusable components.
+Maintain a clean, modern, premium social media design.
+Add appropriate navigation, settings, buttons, notifications, and management interfaces.
+Implement proper validation, security, permissions, and error handling.
+Do not delete existing user data.
+Do not modify unrelated features.
+Inspect the existing codebase before implementation.
+Implement necessary database migrations and backend functionality carefully.
+Test all new features and ensure they work correctly.
+FINAL OBJECTIVE:
+Make Sphere. a more complete, customizable, and privacy-focused social media platform with Messenger-style floating chats, advanced profile and media management, organized photo/video albums, paid advertising, and flexible tagging and profile wall-sharing controls.
+Gemini 4 Hydrogen
+Ran for 0s
+Quota limits exceeded
+SPHERE. – SOCIAL MEDIA FEATURE ENHANCEMENT
+Enhance the existing Sphere. social media platform by adding the following features and functionalities. Integrate everything seamlessly into the current application without rebuilding it from scratch or breaking any existing features.
+IMPORTANT:
+Maintain the existing Sphere. branding, design, database, authentication, navigation, and application architecture. All features must be fully functional, responsive, and connected to the existing backend. Do not create UI-only mockups or placeholder buttons.
+FLOATING MESSENGER CHAT SYSTEM
+Implement a Messenger-style floating chat system.
+Chat windows must pop up at the bottom-right corner of the screen.
+Users can chat while browsing other sections of Sphere.
+Support multiple simultaneous chat windows.
+Allow users to minimize, maximize, restore, and close chat windows.
+Display profile pictures, names, online status, unread message counts, and message notifications.
+Support real-time messaging, typing indicators, timestamps, and read receipts if supported by the backend.
+Prevent duplicate chat windows for the same conversation.
+Maintain chat state while navigating between pages.
+On mobile, use a responsive full-screen or compact chat interface.
+Maintain Sphere.'s own branding while using Messenger-inspired behavior.
+PROFILE PHOTO AND COVER PHOTO MANAGEMENT
+Allow users to manage their profile photos and cover photos.
+Features:
+Upload new profile photos and cover photos.
+Edit, crop, reposition, and adjust uploaded photos.
+Change profile and cover photos anytime.
+Delete current profile and cover photos.
+Preview changes before saving.
+Provide confirmation before deleting.
+Allow users to choose an existing uploaded photo as their profile or cover photo.
+Automatically update the photo across the entire platform, including posts, comments, messaging, and profile pages.
+Maintain proper image quality and responsive display.
+Use secure file storage and appropriate upload validation.
+PHOTO AND VIDEO ALBUM FOLDERS
+Create a media organization system where users can create folders or albums for their uploaded photos and videos.
+Features:
+Create custom photo and video albums.
+Allow users to name, edit, rename, and delete albums.
+Upload multiple photos and videos into a selected album.
+Move media between albums.
+Select an album when uploading media.
+Display albums on the user's profile.
+Support album cover photos.
+Allow users to manage album privacy settings, such as Public, Friends, or Only Me, where applicable.
+Allow users to delete or edit individual media items.
+Maintain media organization without breaking existing posts or media attachments.
+PAID ADVERTISEMENT / PROMOTED POSTS
+Implement a paid advertising feature that allows users, businesses, and eligible creators to promote their posts on Sphere.
+Features:
+Add a "Boost Post" or "Promote Post" option.
+Allow users to select an existing post for promotion.
+Set advertising objectives, such as Reach, Engagement, or Website Traffic.
+Configure target audience based on country, location, interests, and demographics where legally permitted.
+Set advertising budget and campaign duration.
+Display estimated reach and campaign details.
+Create an ad campaign submission and approval workflow.
+Provide an advertising dashboard showing campaign status, budget, impressions, reach, clicks, and engagement.
+Clearly label promoted content as "Sponsored" or "Ad".
+Implement admin approval, rejection, and moderation controls.
+Prevent unauthorized or unapproved advertisements from appearing in the feed.
+Integrate a secure payment system only if supported by the existing backend.
+Never simulate successful payments or advertising analytics.
+PROFILE TAGGING AND WALL SHARING PRIVACY CONTROLS
+Create privacy settings that allow users to enable or disable profile tagging and sharing posts directly to their profile wall.
+Profile Tagging Settings
+Allow users to:
+Enable or disable profile tagging.
+Choose who can tag them: Everyone, Friends, or No One, where applicable.
+Require approval before tagged posts appear on their profile.
+Review pending tags.
+Approve or reject tagging requests.
+Remove themselves from tagged posts when permitted.
+Profile Wall Sharing Settings
+Allow users to:
+Enable or disable other users' ability to share posts directly to their profile wall.
+Choose who can share posts to their profile: Everyone, Friends, or No One, where applicable.
+Prevent unauthorized posts from appearing on their profile.
+Require approval before shared posts appear on their profile wall.
+Remove posts shared by other users from their profile.
+Control these settings through their Privacy Settings.
+Enforcement
+Apply privacy settings consistently across the entire application.
+Ensure restrictions are enforced on both the frontend and backend.
+Do not allow users to bypass privacy settings through direct API requests.
+Notify users when tagging or wall-sharing requests require approval.
+Maintain proper permissions and security.
+GENERAL REQUIREMENTS
+Integrate all features into the existing Sphere. application.
+Use the current backend, database, and authentication system.
+Ensure all features are functional, not merely visual.
+Maintain responsive desktop, tablet, and mobile interfaces.
+Use modular, reusable components.
+Maintain a clean, modern, premium social media design.
+Add appropriate navigation, settings, buttons, notifications, and management interfaces.
+Implement proper validation, security, permissions, and error handling.
+Do not delete existing user data.
+Do not modify unrelated features.
+Inspect the existing codebase before implementation.
+Implement necessary database migrations and backend functionality carefully.
+Test all new features and ensure they work correctly.
+FINAL OBJECTIVE:
+Make Sphere. a more complete, customizable, and privacy-focused social media platform with Messenger-style floating chats, advanced profile and media management, organized photo/video albums, paid advertising, and flexible tagging and profile wall-sharing controls.
+SPHERE. – MESSENGER-STYLE FLOATING CHAT SYSTEM
+Enhance the existing messaging system of Sphere. by implementing a Facebook Messenger-inspired floating chat interface.
+IMPORTANT:
+Do not rebuild the application. Do not remove or modify unrelated existing features. Integrate this functionality into the current Sphere. social media platform while preserving its existing design, branding, layout, and architecture.
+FLOATING CHAT WINDOWS
+Implement floating chat windows that appear at the bottom-right corner of the screen.
+Behavior:
+When a user opens a conversation from Messages, the chat should pop up as a floating window instead of navigating away from the current page.
+Users can continue browsing the feed, profiles, groups, or other sections while chatting.
+Multiple conversations can be opened simultaneously.
+Arrange multiple chat windows horizontally from right to left.
+On desktop, each chat window should have a fixed width and height similar to Facebook Messenger.
+Keep the chat windows above the main page content using appropriate z-index layering.
+Ensure the floating chat windows do not obstruct essential navigation or page controls.
+CHAT WINDOW HEADER
+Each floating chat window must include:
+User profile picture.
+User name.
+Online / Offline status.
+Minimize button.
+Close button.
+Optional video call and voice call buttons if supported by the existing application.
+Clicking the profile picture or name should open the user's profile.
+CHAT FUNCTIONALITY
+The floating chat must support:
+Real-time messaging.
+Text messages.
+Emoji reactions.
+Image and file attachments if supported by the existing backend.
+Message timestamps.
+Message delivery and read indicators.
+Typing indicator.
+Unread message counter.
+Auto-scroll to the latest message.
+Message input field at the bottom of the window.
+Enter to send messages and Shift + Enter for a new line.
+All messages must use the existing messaging backend and database. Do not create a separate disconnected messaging system.
+MULTIPLE CHAT WINDOWS
+Allow users to open multiple conversations at the same time.
+Example:
+Chat with User A.
+Chat with User B.
+Chat with User C.
+All three conversations should remain open simultaneously.
+Requirements:
+Each window maintains its own conversation state.
+Switching between chats must not lose messages or input.
+Prevent duplicate windows for the same conversation.
+Allow users to minimize conversations into compact chat bubbles.
+Clicking a minimized bubble should restore the corresponding chat window.
+Add a limit to the number of simultaneously expanded windows based on screen width, while keeping minimized chats accessible.
+CHAT NOTIFICATIONS
+When a new message arrives:
+If the conversation is closed, display a notification or chat bubble.
+If the conversation is minimized, display an unread message badge.
+If the conversation is already open, append the message in real time.
+Play an optional notification sound based on user settings.
+Do not notify users unnecessarily when they are actively viewing the same conversation.
+MESSENGER-STYLE CHAT DOCK
+Create a bottom-right chat dock.
+The dock should:
+Display minimized conversations as small circular profile pictures.
+Show unread message counts.
+Indicate online status.
+Allow quick access to recent conversations.
+Expand and collapse smoothly.
+Remain available throughout the Sphere. application after navigation.
+RESPONSIVE MOBILE DESIGN
+Desktop:
+Floating chat windows at the bottom-right.
+Multiple simultaneous chat windows.
+Horizontal chat dock.
+Mobile:
+Use a full-screen or near-full-screen chat interface.
+Keep the experience smooth and intuitive.
+Support switching between conversations.
+Do not force desktop-style floating windows onto small screens.
+Preserve navigation and back-button behavior.
+PERSISTENCE
+Keep open chat windows available while navigating within the app.
+Preserve minimized and expanded chat states when possible.
+Maintain unread counts correctly.
+Avoid losing active conversations during page transitions.
+Use the existing session and authentication system.
+Persist chat state appropriately without storing sensitive messages insecurely in local storage.
+VISUAL STYLE
+Use a polished, modern interface inspired by Facebook Messenger's floating chat behavior, but maintain Sphere.'s own branding and visual identity.
+Include:
+Rounded chat windows.
+Smooth minimize and maximize animations.
+Subtle shadows.
+Clean message bubbles.
+Modern profile avatars.
+Consistent typography and spacing.
+Professional responsive layout.
+Do not copy Facebook's branding, logos, or exact visual styling.
+FINAL REQUIREMENT
+Inspect the existing Sphere. messaging system before implementation.
+Implement the floating chat windows as a persistent, reusable application-level component so that they remain accessible while users navigate across different pages.
+Ensure all interactions are functional and connected to the existing messaging backend. Do not create UI-only mockups or placeholder functionality.
+Gemini 4 Hydrogen
+Ran for 12m 6s
+
+Action history
+Here are key actions taken for the app:
+
+Installed 2 packages
+Edited 16 files
+src/types/social.ts
+.gitignore
+server/store.ts
+server.ts
+src/utils/api.ts
+src/components/Media.tsx
+src/components/FloatingMessenger.tsx
+src/components/MessagesView.tsx
+src/components/PhotoManagerModal.tsx
+src/components/AlbumsPanel.tsx
+src/components/AdsDashboardView.tsx
+src/components/PrivacyControlsView.tsx
+src/components/FeedView.tsx
+src/components/ProfileView.tsx
+src/components/DiscoverHubView.tsx
+src/App.tsx
+Built
+All five feature enhancements have been integrated into Sphere. with persistent server storage and real-time WebSocket support while preserving the existing Sphere. design, branding, and Universal Language translation:
+Summary of Enhancements
+Floating Messenger-Style Chat System
+Bottom-right floating chat dock and simultaneous multi-window support with minimize/maximize/restore/close controls, circular minimized avatar bubbles, and sessionStorage window state persistence across route changes (preventing duplicate windows per thread).
+Real-time messaging, live online presence, typing indicators, delivery & read receipts, emoji reactions, image/video/file attachments, inline message translation, toggleable Web Audio notification chime, and a responsive full-screen mobile drawer.
+Full-screen Messages view includes Pop Out to move any active thread into the floating dock.
+Profile Photo & Cover Photo Management
+Interactive HTML5 <canvas> photo editor (PhotoManagerModal) supporting JPEG/PNG/WebP uploads (validated server-side for MIME type, size limit, and magic bytes), drag-to-reposition, zoom, 90° rotation, brightness/contrast controls, live preview, library selection from existing uploads, and explicit confirmation before deletion.
+Saving or deleting immediately updates the user's avatar and cover across profiles, feed posts, comments, directories, and chat windows.
+Photo & Video Album Folders
+Full album CRUD (AlbumsPanel) available in Profile → Photos and Directory → Photos: create, edit, rename, delete (keep unfiled or delete contents), assign album covers, and set privacy (Public, Friends, Only Me).
+Multi-file photo & video upload into a chosen album, metadata editing, and moving items between albums.
+Paid Advertisement / Promoted Posts
+Boost Post action on own posts and dedicated Ads Manager (AdsDashboardView) with objectives (Reach, Engagement, Traffic), country/location/interest/age targeting, daily budget and duration, deterministic reach estimates, and truthful awaiting_payment_setup billing state.
+Admin moderation queue (enforced server-side for role === 'admin'); only approved campaigns display in the feed labeled Sponsored, tracking real impressions, unique viewers, clicks, and engagements via /api/ads/:id/track.
+Profile Tagging & Wall Sharing Privacy Controls
+Granular settings (PrivacyControlsView) for tagging (Everyone, Friends, No one, plus manual tag approval) and wall sharing (Everyone, Friends, No one, plus manual wall approval).
+Pending tag and wall-post approval queues, self-tag removal, wall-share removal, notifications, and server-side HTTP 403 enforcement on POST /api/posts.
+Verification
+tsc --noEmit and Vite production build (compile_applet) passed with zero errors.
+Live server verification on port 3000 passed across /api/bootstrap, /api/upload magic-byte rejection (400), /api/privacy/check and /api/posts privacy enforcement (403), /api/albums CRUD (201/200), /api/ads/:id/moderate admin RBAC (403), /media-seed/* static serving (200), and WebSocket /ws live presence & typing relay.
+The five requested enhancements have been integrated into Sphere. with persistent server storage and real-time WebSocket support while preserving the existing branding, navigation, and Universal Language translation:
+1. Floating Messenger-Style Chat System
+Persistent Bottom-Right Dock & Chat Windows: Browse any Sphere. section while keeping multiple simultaneous chat windows open (FloatingMessenger), minimized as circular avatar bubbles, restored, or closed, with window open/minimized state persisted across navigation in sessionStorage and duplicate windows prevented per thread.
+Real-Time Messaging & Presence: Added WebSocket support (/ws) for live online/offline presence, real-time typing indicators, delivery/read receipts, unread badges, Web Audio chime alerts (toggleable), emoji reactions, image/video/file attachments, inline TranslateControl, and a responsive full-screen mobile chat interface.
+Full-Screen Messages Integration: Clicking Pop Out in Messages opens the conversation directly in the floating messenger dock.
+2. Profile Photo & Cover Photo Management
+Interactive Canvas Editor: Upload JPEG, PNG, or WebP images (validated server-side by MIME type, byte limit, and magic-byte signatures), drag to reposition, zoom, rotate 90°, adjust brightness/contrast, preview changes before saving, or choose from existing uploaded photos (PhotoManagerModal).
+Confirmed Delete & Platform-Wide Sync: Deleting profile or cover photos requires explicit confirmation; updates propagate immediately across posts, comments, profiles, directories, and chat threads.
+3. Photo & Video Album Folders
+Custom Albums: Create, edit, rename, delete (choosing whether to delete or unfile media), assign cover photos, and manage album privacy (Public, Friends, Only Me) via AlbumsPanel.
+Multi-Media Organization: Upload multiple photos and videos directly into a selected album, edit metadata or privacy, and move items between albums in both Profile → Photos and Directory → Photos.
+4. Paid Advertisement / Promoted Posts
+Boost Post & Ads Manager: Boost any of your own posts from the feed or configure campaigns in Ads Manager with an objective (Reach, Engagement, Traffic), audience targeting (countries, locations, interests, ages 18–85), budget, duration, and deterministic audience reach estimates (AdsDashboardView).
+Moderation & Honest Billing/Analytics: Campaigns start in pending_review with awaiting_payment_setup billing status; only admin accounts can approve, reject, or pause campaigns (enforced server-side with HTTP 403 for non-admins). Only approved campaigns display in the feed labeled Sponsored and record real impressions, unique viewers, clicks, and engagements via /api/ads/:id/track.
+5. Profile Tagging & Wall Sharing Privacy Controls
+Granular Privacy Rules: Configure who can tag you (Everyone, Friends, No one), require tag approval before tagged posts appear on your profile, and control who can post to your wall or require wall-post approval (PrivacyControlsView).
+Approval Queues & Backend Enforcement: Approve or reject pending tag and wall requests, remove yourself from tagged posts, and remove wall shares. Privacy restrictions are enforced on POST /api/posts (returning HTTP 403 when disallowed).
+Verification
+Build & Type Check: tsc --noEmit and Vite production compilation succeeded with zero errors.
+Live Server & Real-Time Checks: Verified /api/bootstrap, /api/upload magic-byte rejection (400), /api/privacy/check and /api/posts privacy blocking (403), /api/albums create/patch/delete, /api/ads/:id/moderate admin RBAC (403), /media-seed/* static serving (200), and WebSocket /ws live presence + typing relay on http://localhost:3000.
+Checkpoint
+include all of this
+Paste November 15, 2026 - 3:39PM
+Paste November 15, 2026 - 3:43PM
+Paste November 15, 2026 - 3:44PM
+Paste November 15, 2026 - 3:44PM
+Gemini 4 Hydrogen
+Ran for 59m 56s
+
+Action history
+Here are key actions taken for the app:
+
+Edited 12 files
+src/types/social.ts
+src/utils/discovery.ts
+server/store.ts
+server.ts
+src/components/PublicLanding.tsx
+src/components/AuthGate.tsx
+src/components/OrbitMap.tsx
+src/components/VideoPlayer.tsx
+src/components/LiveStreamModal.tsx
+src/components/SearchResultsView.tsx
+src/components/SocialModals.tsx
+src/components/FeedView.tsx
+Checkpoint
+Checkpoint
+Checkpoint
+for the word we need to use
+instead of Reels use Loops and it has max of 3 mins videos.
+Avoid repetition of word if now necessarily
+Joiners of this platform should atleast 18 years old and above.
+if there are minors we cant control it because it is advise to supervise your child.
+Any explicit images of videos are not allowed to post. pornography for example. this platform must be user friendly.
+Dont use the word
+One WOrld, no barrier
+use the accuratre word. not a weird one.
+for what on you mind lets use more simplier and yet related to sphere.
+also , dont forget the birthday greeting if there is someone who had a birthday, weneed to suggesyt it .
+There is also aways a place for donations drive for those legit agency whos helping people. and it should be always be verified to avoid corruptions. only registrered organization can do that. take note government registered oirganization.
+Gemini 4 Hydrogen
+Ran for 9m 21s
+
+Action history
+Here are key actions taken for the app:
+
+Edited 19 files
+src/types/social.ts
+src/utils/discovery.ts
+index.html
+metadata.json
+server/store.ts
+server.ts
+src/components/PublicLanding.tsx
+src/components/GlobalCircleView.tsx
+src/components/AuthGate.tsx
+src/components/VideoPlayer.tsx
+src/components/DiscoverHubView.tsx
+src/components/Modals.tsx
+src/components/ProfileView.tsx
+src/components/AlbumsPanel.tsx
+src/data/mockSocial.ts
+src/components/DonationDrivesView.tsx
+src/components/FeedView.tsx
+src/App.tsx
+src/components/PhotoManagerModal.tsx
+Built
+All requested updates have been integrated into Sphere. and verified across the frontend build, TypeScript checks, and live API endpoints:
+Loops Instead of Reels (3-Minute Maximum)
+Replaced all "Reels" and legacy short-video labels with Loops (Loops, Loop · 9:16, Loops (9:16 · Max 3 min)) across navigation, FeedView, DiscoverHubView, and VideoPlayer.
+Enforced the 180-second (3-minute) duration cap for Loops (format === 'short') in FeedView (via client-side video metadata inspection) and in POST /api/posts.
+18+ Minimum Age & Minor Supervision Advisory
+Enforced an 18+ minimum age check during registration in SignUpModal (AuthGate.tsx) and POST /api/auth/register.
+Added explicit 18+ requirement copy, a minor-supervision advisory for parents and guardians, and user-friendly platform notices across the sign-up consent flow and footers (PublicLanding, App).
+Explicit & Pornographic Content Prohibition
+Added checkSafeContent validation across post creation, comments, albums/media uploads, profile/cover photo filenames, anonymous Safe Topics, and donation drives—enforced both client-side and in Express (server.ts).
+Accurate Wording, Reduced Repetition & Sphere-Native Composer Prompt
+Removed "One world. No language barriers.", "no language barriers", and "zero-barrier" across index.html, metadata.json, PublicLanding, GlobalCircleView, DiscoverHubView, mockSocial, and App, tightening repetitive subtitle copy.
+Replaced "What's on your mind..." with Sphere-specific prompts (Share with your Sphere, ... and Share a note to your Sphere timeline...).
+Birthday Greeting Suggestions
+Added dynamic birthday detection (getBirthdaySuggestions) highlighting today's and upcoming birthdays in a top feed banner and a right-rail Birthdays card in FeedView.
+Added customizable one-click Send Greeting actions (handleSendBirthdayGreeting in App) that post to a friend's timeline when wall sharing is permitted or send via Messenger otherwise.
+Verified Government-Registered Donation Drives
+Added a dedicated Aid Drives section (DonationDrivesView, NavRoute { page: 'donations' }, Feed shortcuts, and real-time donation:created / donation:updated WebSocket updates).
+Required government registration number and issuing agency fields in Sphere ID Verification (SphereIdModal + /api/verification-requests) for Verified Organizations, and enforced in POST /api/donations (403 for non-verified accounts) so only verified government-registered organizations (such as the seeded Camarines Norte Relief & Aid Foundation, DSWD-FO5-2023-0142 / SEC-CN201809412) can host donation drives, complete with public contribution ledgers and pledge support (POST /api/donations/:driveId/pledge).
+Checkpoint
+the data privacy act should be from all over the world rules, I mean all the countries has data privacy act, so dont limit it to philippines only.
+Use this words left instead of those on right
+Loops - Short videos
+Videos - Videos
+MyIcon - Profile photo
+Images - Photos
+Frames - Album
+On Live - Live streaming
+Echoes - Daily updates
+Tales - Stories
+Shelves - Marketplace
+Pulse - News feed
+MySpace - Personal wall
+Page - Page
+Circles - Groups
+Gaming - Games
+Orbit - people you may know
+Gemini 4 Hydrogen
+Ran for 10m 7s
+
+Action history
+Here are key actions taken for the app:
+
+Edited 20 files
+src/utils/discovery.ts
+server.ts
+src/components/VideoPlayer.tsx
+src/components/Modals.tsx
+src/components/SocialModals.tsx
+src/components/PrivacyControlsView.tsx
+src/components/AuthGate.tsx
+src/components/PublicLanding.tsx
+src/components/AlbumsPanel.tsx
+src/components/PhotoManagerModal.tsx
+src/components/LiveStreamModal.tsx
+src/components/ProfileView.tsx
+src/components/DiscoverHubView.tsx
+src/components/GlobalCircleView.tsx
+src/components/OrbitMap.tsx
+src/components/SearchResultsView.tsx
+src/components/FeedView.tsx
+src/App.tsx
+index.html
+metadata.json
+Built
+Updated Sphere. with worldwide Data Privacy Act coverage and consistent platform terminology across the interface and server responses:
+Worldwide Data Privacy Compliance:
+Replaced Philippines-only RA 10173 restrictions with global Data Privacy frameworks (GDPR / UK GDPR, CCPA / CPRA, PIPEDA, LGPD, APPI, PIPA, PDPA, DPDPA, Privacy Act 1988 / APPs, POPIA, PIPL, RA 10173, LFPDPPP, Law 1581, and NDPR) mapped dynamically by country during registration, inside privacy settings, and across profile visibility controls.
+Updated registration consent validation (POST /api/auth/register) to require acknowledging the Global Data Privacy Notice.
+Sphere. Terminology Alignment:
+Pulse (News feed) and Echoes (Daily updates / post composer & presets).
+Orbit (People you may know) with a dedicated Orbit · People You May Know directory view, top navigation tab, and Pulse sidebar suggestions widget.
+MyIcon (Profile photo), Images (Photos), and Frames (Albums) across the media manager, cropping modal, and profile/directory panels.
+Loops (9:16 short videos capped at 3 minutes), Videos (16:9 videos), On Live (Live streaming studio & replays), and Tales (Stories strip).
+MySpace (Personal wall & approval controls), Circles (Groups), Shelves (Marketplace), Page (Pages), and Gaming (discovery shortcut in the Pulse rail).
+Verification:
+Verified with compile_applet (Vite build succeeded) and lint_applet (tsc --noEmit succeeded).
+Restarted the dev server and verified GET /api/bootstrap (200) and POST /api/auth/register (privacyConsent: false returns "Please acknowledge the Global Data Privacy Notice.").
+Checkpoint
+Yung reaction sa post
+may 4 available reacts
+isa lang dun ang pwede iclick, hindi dapat multiple click.
+3x lang pwedeng magpalit ng react,
+hindi din pwede ang flood reacts and flood comments hindi din pwede. sa bawat comments sa post, pwede din maglagay ng reacts.
+sa marketplace posting pwede din magreaact pero depende kung nakaenable ang commnent and react, pag hindi naka enable, message lang ang meron sa direkta saa nagbebenta.
+kung ano ang nakikita mo sa News Feed / Pulse mo ay iba sa nakikita g friends mo, kapag tiningnan nila ang sphere account mo ay makikita lang nila ay ang allowed na makita nila
+Gemini 4 Hydrogen
+Ran for 0s
+
+Action history
+Here are key actions taken for the app:
+
+Edited 8 files
+src/types/social.ts
+src/utils/discovery.ts
+server/store.ts
+server.ts
+src/components/DiscoverHubView.tsx
+src/components/ProfileView.tsx
+src/App.tsx
+src/utils/api.ts
+Built
+All Sphere. features and enhancements are now integrated with the backend and real-time WebSocket server while preserving the existing Floating Messenger, Profile/Cover Photo Manager, Photo & Video Albums, Ads Manager, and Tagging & Wall-Sharing Privacy Controls.
+Summary of Completed Features
+Public Gateway, Authentication & Account Switching (PublicLanding.tsx, AuthGate.tsx, /api/auth/*)
+Added the logged-out landing page (PublicLanding) with an interactive 4-Ring Orbit explainer, core pillars, and quick-switch demo profiles.
+Added SignInModal (credentials login, Forgot Password with masked contact verification & complexity check, and one-click demo account switcher) and SignUpModal (13+ DOB check, unique handle/email/mobile validation, 6-rule password strength meter, RA 10173 consent, and 6-digit verification step).
+Connected Log Out and Switch Account in the top navigation bar with persisted session state (localStorage) and automatic server bootstrap + WebSocket reconnection. User passwords are stripped via sanitizeUser before leaving the server.
+RA 10173 Privacy Enforcement & Post Audience Controls (PrivacySettingsModal, ProfileView.tsx, server/store.ts)
+Enforced public, friends_of_friends, friends_only, and only_me (Private Vault) visibility on profiles, posts, shared posts, photos, and Private Group walls both on the server (/api/bootstrap) and in the client views.
+Added an RA 10173 visibility modal (PrivacySettingsModal) and inline post/photo audience selectors.
+Concentric Orbit Map, Orbit Lenses & Vibe Metadata (OrbitMap.tsx, FeedView.tsx)
+Added a Feed | My Orbit toggle on the home feed with an interactive concentric ring map (You, Inner Circle, Global Orbit, and Pages & Groups) plus a node inspector.
+Added Orbit Lens filtering (All Orbits, Inner Circle, Mutuals, Open Sphere, Vault (Only Me)) and Currently / Vibe composer attachments.
+Short (9:16) & Long (16:9) Video, Interactive Livestreams & Media Lightbox (VideoPlayer.tsx, LiveStreamModal.tsx, SocialModals.tsx)
+Added Short (9:16) and Long (16:9) video uploads in the feed composer and a Videos directory tab in DiscoverHubView.
+Added the Go Live broadcast studio (LiveStreamModal) with camera/mic preview (and graceful fallback), live elapsed timer, real-time stream chat, and End Stream & Post Replay (/api/livestreams/*), surfaced in both the feed and the Live & Replays directory tab.
+Added PhotoLightboxModal with author/Page/Group attribution, Universal Language translation, reactions, comments, and owner audience controls, plus SharePostModal for reposting to the feed or sending directly into Floating Messenger threads.
+Pages, Groups, Marketplace & Global Live Search (DiscoverHubView.tsx, SearchResultsView.tsx, App.tsx)
+Added Create Page, Create Group, clickable Page Detail views (with Page Transparency & Publish-as-Page composer), and clickable Group Detail views (with Private Circle lock gating & group wall composer).
+Added Post Product (PostProductModal with optional feed cross-posting), SOLD / Relist toggling (ProductDetailModal), and Message Seller opening Floating Messenger.
+Added live search suggestions in the top bar and a tabbed SearchResultsView (All, People, Pages, Posts, Groups, Photos) filtered by RA 10173 profile permissions.
+Verification
+vite build (compile_applet) and tsc --noEmit (lint_applet) both completed with exit code 0.
+Verified live server endpoints on port 3000 (/api/bootstrap, /api/auth/register weak-password rejection & strong registration without password leakage, /api/auth/login, only_me post isolation across viewers, /api/pages, /api/groups, /api/marketplace + toggle-sold, /api/posts/:id/share, /api/livestreams/start|chat|end, non-admin /api/ads/:id/moderate 403 check) and WebSocket /ws presence updates.
+Checkpoint
+yung UI/UX nya medyo malapit sa facevook pero unique pa din tingnan.
+Gemini 4 Hydrogen
+Ran for 5m 5s
+
+Action history
+Here are key actions taken for the app:
+
+Edited 4 files
+src/index.css
+src/components/FeedView.tsx
+src/components/ProfileView.tsx
+src/App.tsx
+Built
+Inayos at na-upgrade ang UI/UX ng Sphere. para maging pamilyar at intuitive na tulad ng Facebook, habang pinapanatili ang unique visual identity (Indigo + Cyan palette, Bricolage Grotesque & DM Sans, at lahat ng built-in Sphere. features):
+Mga Pangunahing Pagbabago
+3-Zone Sticky Header (src/App.tsx):
+Kaliwa: Custom geometric Sphere emblem + wordmark + rounded-full Search Sphere input na may instant live dropdown.
+Gitna: 5 icon + underline navigation tabs (Feed, Circle, Watch, Market, Safe Topics) na may active bottom indicator bar.
+Kanan: Circular utility buttons para sa Messenger (with unread count badge), Notifications Bell dropdown (para sa pending tag/wall approvals at updates), Theme Toggle, at Profile Avatar Menu (may access sa Profile, Directory, Privacy Hub, RA 10173, Ads Manager, Switch Account, at Log Out).
+3-Column Facebook-Style Feed (src/components/FeedView.tsx):
+Left Rail (Sticky): Profile shortcut + colored-icon sidebar links (News Feed, My Orbit Map, Global Circle, Find Your People, Pages, Groups, Videos & Live, Albums & Media, Marketplace, Safe Topics, RA 10173 Privacy, Ads & Boost) + Your Shortcuts (followed Pages).
+Center Stream:
+Stories / Orbit Moments & Live Strip: Horizontal strip para sa Go Live Studio card, unique My Orbit Map card, active/replay livestreams, at recent friend moments.
+“What's on your mind?” Composer Card: Circular avatar + rounded composer input, quick bottom action bar (Live, Photo, Video, Vibe, Tag, Sell), at Location/Privacy controls.
+Compact Scope & Orbit Lens Bar: Nearby / City / Country / Global filters + Orbit Lens (All Orbits, Inner Circle, Mutuals, Open Sphere, Vault) + Auto-translate indicator.
+Edge-to-Edge Post Cards: Circular avatar na may real-time green online dot, flush media layout, counts summary row, 3-part action bar (Reactions, Comment focus, Share modal), at pill-style inline comment box.
+Right Rail (Sticky): Actionable Privacy Approvals, Friend Requests (Confirm/Remove), searchable Contacts list na may live online presence (pag-click ay direkta nang magbubukas ng Floating Messenger window), at Trending Across Sphere.
+Facebook-Inspired Profile Layout (src/components/ProfileView.tsx):
+Full-width Cover photo na may Edit/Add Cover Photo button at overlapping circular Profile Avatar (Manage Profile Photo).
+Bottom-underline profile navigation tabs (Posts, About, Friends, Photos & Albums, Testimonials).
+2-Column Timeline Split: Intro, Photos grid preview, at Friends grid preview sa kaliwa; pending approvals, Wall Composer, at timeline posts sa kanan.
+Verification
+compile_applet (vite build): Passed.
+lint_applet (tsc --noEmit): Passed with zero errors.
+Live backend check (http://localhost:3000/api/bootstrap?viewerId=adrian): HTTP 200.
+Checkpoint
+sphere. logo
+image.png
+image.png
+Gemini 4 Hydrogen
+Ran for 38s
+
+Action history
+Here are key actions taken for the app:
+
+Edited 3 files
+index.html
+src/App.tsx
+src/components/PublicLanding.tsx
+Built
+Nai-set na ang bagong Sphere. logo sa buong app:
+Top Navigation Bar: Pinalitan ang dating SVG emblem ng uploaded Sphere. logo sa sticky header at loading screen (src/App.tsx).
+Public Landing Header: Idinagdag ang Sphere. logo katabi ng wordmark sa logged-out landing page (src/components/PublicLanding.tsx).
+Browser Favicon & Social Preview: Itinakda ang uploaded logo bilang favicon, Apple touch icon, at OpenGraph image sa index.html.
+Verification
+compile_applet (vite build): Passed.
+lint_applet (tsc --noEmit): Passed.
+Asset HTTP check (/assets/aistudio/image_429bc5f2.png): HTTP 200.
+Checkpoint
+for the word we need to use
+instead of Reels use Loops and it has max of 3 mins videos.
+Avoid repetition of word if now necessarily
+Joiners of this platform should atleast 18 years old and above.
+if there are minors we cant control it because it is advise to supervise your child.
+Any explicit images of videos are not allowed to post. pornography for example. this platform must be user friendly.
+Dont use the word
+One WOrld, no barrier
+use the accuratre word. not a weird one.
+for what on you mind lets use more simplier and yet related to sphere.
+also , dont forget the birthday greeting if there is someone who had a birthday, weneed to suggesyt it .
+There is also aways a place for donations drive for those legit agency whos helping people. and it should be always be verified to avoid corruptions. only registrered organization can do that. take note government registered oirganization.
+Gemini 4 Hydrogen
+Ran for 9m 21s
+
+Action history
+Here are key actions taken for the app:
+
+Edited 19 files
+src/types/social.ts
+src/utils/discovery.ts
+index.html
+metadata.json
+server/store.ts
+server.ts
+src/components/PublicLanding.tsx
+src/components/GlobalCircleView.tsx
+src/components/AuthGate.tsx
+src/components/VideoPlayer.tsx
+src/components/DiscoverHubView.tsx
+src/components/Modals.tsx
+src/components/ProfileView.tsx
+src/components/AlbumsPanel.tsx
+src/data/mockSocial.ts
+src/components/DonationDrivesView.tsx
+src/components/FeedView.tsx
+src/App.tsx
+src/components/PhotoManagerModal.tsx
+Built
+All requested updates have been integrated into Sphere. and verified across the frontend build, TypeScript checks, and live API endpoints:
+Loops Instead of Reels (3-Minute Maximum)
+Replaced all "Reels" and legacy short-video labels with Loops (Loops, Loop · 9:16, Loops (9:16 · Max 3 min)) across navigation, FeedView, DiscoverHubView, and VideoPlayer.
+Enforced the 180-second (3-minute) duration cap for Loops (format === 'short') in FeedView (via client-side video metadata inspection) and in POST /api/posts.
+18+ Minimum Age & Minor Supervision Advisory
+Enforced an 18+ minimum age check during registration in SignUpModal (AuthGate.tsx) and POST /api/auth/register.
+Added explicit 18+ requirement copy, a minor-supervision advisory for parents and guardians, and user-friendly platform notices across the sign-up consent flow and footers (PublicLanding, App).
+Explicit & Pornographic Content Prohibition
+Added checkSafeContent validation across post creation, comments, albums/media uploads, profile/cover photo filenames, anonymous Safe Topics, and donation drives—enforced both client-side and in Express (server.ts).
+Accurate Wording, Reduced Repetition & Sphere-Native Composer Prompt
+Removed "One world. No language barriers.", "no language barriers", and "zero-barrier" across index.html, metadata.json, PublicLanding, GlobalCircleView, DiscoverHubView, mockSocial, and App, tightening repetitive subtitle copy.
+Replaced "What's on your mind..." with Sphere-specific prompts (Share with your Sphere, ... and Share a note to your Sphere timeline...).
+Birthday Greeting Suggestions
+Added dynamic birthday detection (getBirthdaySuggestions) highlighting today's and upcoming birthdays in a top feed banner and a right-rail Birthdays card in FeedView.
+Added customizable one-click Send Greeting actions (handleSendBirthdayGreeting in App) that post to a friend's timeline when wall sharing is permitted or send via Messenger otherwise.
+Verified Government-Registered Donation Drives
+Added a dedicated Aid Drives section (DonationDrivesView, NavRoute { page: 'donations' }, Feed shortcuts, and real-time donation:created / donation:updated WebSocket updates).
+Required government registration number and issuing agency fields in Sphere ID Verification (SphereIdModal + /api/verification-requests) for Verified Organizations, and enforced in POST /api/donations (403 for non-verified accounts) so only verified government-registered organizations (such as the seeded Camarines Norte Relief & Aid Foundation, DSWD-FO5-2023-0142 / SEC-CN201809412) can host donation drives, complete with public contribution ledgers and pledge support (POST /api/donations/:driveId/pledge).
+Checkpoint
+the data privacy act should be from all over the world rules, I mean all the countries has data privacy act, so dont limit it to philippines only.
+Use this words left instead of those on right
+Loops - Short videos
+Videos - Videos
+MyIcon - Profile photo
+Images - Photos
+Frames - Album
+On Live - Live streaming
+Echoes - Daily updates
+Tales - Stories
+Shelves - Marketplace
+Pulse - News feed
+MySpace - Personal wall
+Page - Page
+Circles - Groups
+Gaming - Games
+Orbit - people you may know
+Gemini 4 Hydrogen
+Ran for 10m 7s
+
+Action history
+Here are key actions taken for the app:
+
+Edited 19 files
+src/utils/discovery.ts
+server.ts
+src/components/VideoPlayer.tsx
+src/components/Modals.tsx
+src/components/SocialModals.tsx
+src/components/PrivacyControlsView.tsx
+src/components/AuthGate.tsx
+src/components/PublicLanding.tsx
+src/components/AlbumsPanel.tsx
+src/components/PhotoManagerModal.tsx
+src/components/LiveStreamModal.tsx
+src/components/ProfileView.tsx
+src/components/DiscoverHubView.tsx
+src/components/GlobalCircleView.tsx
+src/components/OrbitMap.tsx
+src/components/SearchResultsView.tsx
+src/components/FeedView.tsx
+src/App.tsx
+metadata.json
+Built
+Updated Sphere. with worldwide Data Privacy Act coverage and consistent platform terminology across the interface and server responses:
+Worldwide Data Privacy Compliance:
+Replaced Philippines-only RA 10173 restrictions with global Data Privacy frameworks (GDPR / UK GDPR, CCPA / CPRA, PIPEDA, LGPD, APPI, PIPA, PDPA, DPDPA, Privacy Act 1988 / APPs, POPIA, PIPL, RA 10173, LFPDPPP, Law 1581, and NDPR) mapped dynamically by country during registration, inside privacy settings, and across profile visibility controls.
+Updated registration consent validation (POST /api/auth/register) to require acknowledging the Global Data Privacy Notice.
+Sphere. Terminology Alignment:
+Pulse (News feed) and Echoes (Daily updates / post composer & presets).
+Orbit (People you may know) with a dedicated Orbit · People You May Know directory view, top navigation tab, and Pulse sidebar suggestions widget.
+MyIcon (Profile photo), Images (Photos), and Frames (Albums) across the media manager, cropping modal, and profile/directory panels.
+Loops (9:16 short videos capped at 3 minutes), Videos (16:9 videos), On Live (Live streaming studio & replays), and Tales (Stories strip).
+MySpace (Personal wall & approval controls), Circles (Groups), Shelves (Marketplace), Page (Pages), and Gaming (discovery shortcut in the Pulse rail).
+Verification:
+Verified with compile_applet (Vite build succeeded) and lint_applet (tsc --noEmit succeeded).
+Restarted the dev server and verified GET /api/bootstrap (200) and POST /api/auth/register (privacyConsent: false returns "Please acknowledge the Global Data Privacy Notice.").
+Checkpoint
+Yung reaction sa post
+may 4 available reacts
+isa lang dun ang pwede iclick, hindi dapat multiple click.
+3x lang pwedeng magpalit ng react,
+hindi din pwede ang flood reacts and flood comments hindi din pwede. sa bawat comments sa post, pwede din maglagay ng reacts.
+sa marketplace posting pwede din magreaact pero depende kung nakaenable ang commnent and react, pag hindi naka enable, message lang ang meron sa direkta saa nagbebenta.
+kung ano ang nakikita mo sa News Feed / Pulse mo ay iba sa nakikita g friends mo, kapag tiningnan nila ang sphere account mo ay makikita lang nila ay ang allowed na makita nila
+Gemini 4 Hydrogen
+Ran for 15m 36s
+
+Action history
+Here are key actions taken for the app:
+
+Edited 10 files
+src/types/social.ts
+src/utils/discovery.ts
+server/store.ts
+server.ts
+src/components/ReactionControls.tsx
+src/App.tsx
+src/components/FeedView.tsx
+src/components/ProfileView.tsx
+src/components/DiscoverHubView.tsx
+src/components/SocialModals.tsx
+Built
+Quota limits exceeded
+Checkpoint
+para hindi nagkakalat ang mga rules sa kung saan saan, maglagay tayo ng button para sa Sphere Policy Guidelines para dun nakalagay yung mga Batas tungkol sa dapat na iwasan upang hindi mablock sa Sphere Community. gaya ng facebook meron silang guidelines di ba at mababsa mo yung kapag tiingnan sa Sphere terms and policy guidelines.
+ito ang polibleng laman din ng policy guidelines
+Sphere Community Guidelines
+Building a space where everyone belongs.
+Sphere is a place to connect, share ideas, express yourself, and build meaningful relationships. We want everyone to feel welcome, respected, and safe while being part of our community.
+To keep Sphere a positive environment, every member is expected to follow these guidelines. They are not here to limit genuine expression, but to make sure that everyone's experience is treated with care and respect.
+1. Respect Others and Keep It Safe
+Treat people the way you would want to be treated. Different opinions are welcome, but disrespect and harmful behavior are not.
+Please avoid:
+Hate speech, discrimination, or attacks based on someone's identity or beliefs.
+Bullying, threats, harassment, or repeated unwanted contact.
+Content that promotes violence or encourages people to hurt themselves or others.
+Explicit sexual content, sexual exploitation, or any form of child abuse.
+Sharing private or sensitive information about someone without their permission.
+A simple reminder: You can disagree with someone without making them feel unsafe or unwelcome.
+2. Be Genuine. Be Yourself.
+Sphere values real people and honest interactions. We encourage members to use their accounts responsibly and represent themselves truthfully.
+The following are not allowed:
+Creating accounts to impersonate another person, organization, or public figure.
+Using fake identities to deceive, manipulate, or mislead others.
+Sending repetitive, unwanted messages or posting spam.
+Buying, selling, or manipulating likes, followers, reviews, or other forms of engagement.
+Using fake accounts to influence discussions or misrepresent popularity.
+Remember: Real connections matter more than numbers.
+3. Handle Restricted Products and Services Responsibly
+Sphere does not allow the use of its platform to facilitate illegal, harmful, or unauthorized transactions.
+This includes:
+Illegal drugs and controlled substances.
+Unauthorized firearm and weapon transactions.
+Alcohol sales or other restricted goods where prohibited.
+Illegal trade or unauthorized sale of live animals.
+Fraudulent services, deceptive offers, and scams.
+Gambling activities and regulated medical services without the necessary authorization.
+Some products and services may be subject to additional restrictions under applicable laws and Sphere's approval requirements.
+Our goal: Protect members from unsafe transactions and misleading offers.
+4. Give Credit Where It's Due
+Your creativity deserves respect, and so does everyone else's.
+When sharing photos, videos, music, artwork, or other creative work, make sure you own it or have permission to use it.
+Please do not:
+Repost someone else's work without permission when permission is required.
+Claim another person's creative work as your own.
+Use copyrighted music, images, videos, or materials without the necessary rights.
+Misuse Sphere's name, branding, logos, or other protected materials.
+Giving credit is appreciated, but credit alone does not replace permission when permission is required.
+Create, share, and inspire, but respect the work behind every creation.
+5. Keep Pages, Groups, and Events Trustworthy
+Pages, groups, and events help bring people together. Those who manage them are responsible for maintaining a safe, honest, and respectful environment.
+Administrators and organizers should:
+Provide accurate information about their pages, groups, and events.
+Avoid misleading verification claims or false affiliations.
+Keep discussions relevant and free from spam.
+Avoid deceptive invitations, fake promotions, and unauthorized commercial activities.
+Take reasonable action when members repeatedly violate community guidelines.
+Having an administrative role does not exempt anyone from following Sphere's rules.
+6. What Happens When Rules Are Broken?
+We understand that mistakes happen. However, repeated or serious violations can affect the safety and experience of the entire community.
+Depending on the situation, Sphere may take one or more of the following actions:
+Content Removal: Posts, comments, images, or other material may be removed.
+Visibility Restrictions: Content may receive reduced distribution or limited visibility.
+Temporary Restrictions: Certain activities, such as posting, messaging, or interacting with others, may be temporarily limited.
+Account Suspension: Accounts may be temporarily suspended following serious or repeated violations.
+Permanent Removal: Accounts may be disabled when violations are severe or continued despite previous action.
+Enforcement decisions may consider the seriousness of the violation, its impact on others, and the member's previous behavior.
+7. Our Commitment to the Community
+Sphere is built by the people who use it. Every post, conversation, and interaction contributes to the kind of community we become.
+We encourage everyone to:
+Be respectful, even when opinions differ.
+Think before sharing.
+Protect their own privacy and respect the privacy of others.
+Report content or behavior that puts the community at risk.
+Help make Sphere a welcoming place for everyone.
+Let's make Sphere a place where people can connect freely, express themselves confidently, and feel good about being part of something bigger.
+By using Sphere, you agree to follow these Community Guidelines and any additional platform policies that may apply.

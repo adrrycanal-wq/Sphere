@@ -1,0 +1,474 @@
+{
+  "entities": {
+    "AdminUser": {
+      "title": "AdminUser",
+      "description": "Trusted roster of platform administrators allowed to review moderation and Sphere ID verification queues.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "email": { "type": "string", "format": "email", "maxLength": 200 },
+        "grantedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "grantedAt"]
+    },
+    "UserPublicProfile": {
+      "title": "UserPublicProfile",
+      "description": "Community-visible member profile for Sphere. (PII isolated in private subcollection).",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "handle": { "type": "string", "minLength": 2, "maxLength": 50 },
+        "avatar": { "type": "string", "maxLength": 500 },
+        "avatarColor": { "type": "string", "maxLength": 24 },
+        "coverImage": { "type": "string", "maxLength": 500 },
+        "status": { "type": "string", "maxLength": 240 },
+        "location": { "type": "string", "maxLength": 120 },
+        "country": { "type": "string", "maxLength": 80 },
+        "language": { "type": "string", "maxLength": 100 },
+        "preferredLanguage": { "type": "string", "maxLength": 60 },
+        "bio": { "type": "string", "maxLength": 600 },
+        "quote": { "type": "string", "maxLength": 240 },
+        "privacy": { "type": "string", "enum": ["public", "friends_of_friends", "friends_only", "only_me"] },
+        "sphereIdCategory": { "type": "string", "enum": ["verified_individual", "verified_organization", "unverified"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "name", "handle", "avatarColor", "location", "country", "privacy", "createdAt", "updatedAt"]
+    },
+    "UserPrivateInfo": {
+      "title": "UserPrivateInfo",
+      "description": "Strictly isolated PII and personal preference record readable only by owner or verified admin.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "email": { "type": "string", "maxLength": 200 },
+        "mobile": { "type": "string", "maxLength": 32 },
+        "birthday": { "type": "string", "maxLength": 20 },
+        "gender": { "type": "string", "maxLength": 40 },
+        "autoTranslate": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "updatedAt"]
+    },
+    "SocialPostDoc": {
+      "title": "SocialPostDoc",
+      "description": "Pulse, MySpace wall, Page, Circle, Loop, Video, or On Live post stored in Firestore.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "authorId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "targetProfileId": { "type": "string", "maxLength": 128 },
+        "wallApproved": { "type": "boolean" },
+        "content": { "type": "string", "maxLength": 3000 },
+        "location": { "type": "string", "maxLength": 120 },
+        "country": { "type": "string", "maxLength": 80 },
+        "privacy": { "type": "string", "enum": ["public", "friends_of_friends", "friends_only", "only_me"] },
+        "sharesCount": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "authorId", "content", "privacy", "sharesCount", "createdAt", "updatedAt"]
+    },
+    "AlbumDoc": {
+      "title": "AlbumDoc",
+      "description": "User Frame (photo/video album) with privacy setting.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "description": { "type": "string", "maxLength": 500 },
+        "privacy": { "type": "string", "enum": ["public", "friends_only", "only_me"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "ownerId", "name", "privacy", "createdAt", "updatedAt"]
+    },
+    "PhotoDoc": {
+      "title": "PhotoDoc",
+      "description": "Image or Video item belonging to a user or Page Frame.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "albumId": { "type": "string", "maxLength": 128 },
+        "src": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "caption": { "type": "string", "maxLength": 500 },
+        "privacy": { "type": "string", "enum": ["public", "friends_of_friends", "friends_only", "only_me"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "ownerId", "src", "privacy", "createdAt", "updatedAt"]
+    },
+    "MarketplaceDoc": {
+      "title": "MarketplaceDoc",
+      "description": "Shelves marketplace product listing with optional interaction toggle.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "sellerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "price": { "type": "number" },
+        "category": { "type": "string", "maxLength": 80 },
+        "description": { "type": "string", "maxLength": 1200 },
+        "privacy": { "type": "string", "enum": ["public", "friends_of_friends", "friends_only", "only_me"] },
+        "sold": { "type": "boolean" },
+        "allowCommentsAndReactions": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "sellerId", "title", "price", "privacy", "sold", "allowCommentsAndReactions", "createdAt", "updatedAt"]
+    },
+    "PageDoc": {
+      "title": "PageDoc",
+      "description": "Public Page owned by a user or verified institution with dedicated rules and guidelines.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "handle": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "category": { "type": "string", "maxLength": 80 },
+        "description": { "type": "string", "maxLength": 1000 },
+        "location": { "type": "string", "maxLength": 120 },
+        "postingPolicy": { "type": "string", "maxLength": 400 },
+        "guidelinesSummary": { "type": "string", "maxLength": 1200 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "ownerId", "name", "handle", "createdAt", "updatedAt"]
+    },
+    "GroupDoc": {
+      "title": "GroupDoc",
+      "description": "Sphere Circle (public or private community group) with dedicated rules and guidelines.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "creatorId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "category": { "type": "string", "maxLength": 80 },
+        "description": { "type": "string", "maxLength": 1000 },
+        "privacy": { "type": "string", "enum": ["public", "private"] },
+        "postingPolicy": { "type": "string", "maxLength": 400 },
+        "guidelinesSummary": { "type": "string", "maxLength": 1200 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "creatorId", "name", "privacy", "createdAt", "updatedAt"]
+    },
+    "GroupMembership": {
+      "title": "GroupMembership",
+      "description": "Membership record inside a Circle subcollection.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "role": { "type": "string", "enum": ["admin", "member"] },
+        "joinedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "role", "joinedAt"]
+    },
+    "MessageThreadDoc": {
+      "title": "MessageThreadDoc",
+      "description": "Messenger conversation thread header.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "peerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "ownerId", "peerId", "createdAt", "updatedAt"]
+    },
+    "DirectMessageDoc": {
+      "title": "DirectMessageDoc",
+      "description": "Individual message inside a Messenger thread subcollection.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "senderId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "recipientId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "text": { "type": "string", "maxLength": 4000 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "senderId", "recipientId", "text", "createdAt"]
+    },
+    "AdCampaignDoc": {
+      "title": "AdCampaignDoc",
+      "description": "Promoted Post ad campaign with billing and admin moderation state.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "advertiserId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "postId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "dailyBudgetPhp": { "type": "number" },
+        "durationDays": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending_review", "approved", "rejected", "paused"] },
+        "billingStatus": { "type": "string", "enum": ["awaiting_payment_setup", "ready"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "advertiserId", "postId", "title", "dailyBudgetPhp", "durationDays", "status", "billingStatus", "createdAt", "updatedAt"]
+    },
+    "DonationDriveDoc": {
+      "title": "DonationDriveDoc",
+      "description": "Verified government-registered organization Aid Drive.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "organizerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "govAgency": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "govRegNumber": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "goalAmountPhp": { "type": "number" },
+        "raisedAmountPhp": { "type": "number" },
+        "status": { "type": "string", "enum": ["active", "completed"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "organizerId", "title", "govAgency", "govRegNumber", "goalAmountPhp", "raisedAmountPhp", "status", "createdAt", "updatedAt"]
+    },
+    "VerificationRequestDoc": {
+      "title": "VerificationRequestDoc",
+      "description": "Sphere ID verification request submitted by a user or government-registered org.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "applicantUserId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "category": { "type": "string", "enum": ["verified_individual", "verified_organization"] },
+        "entityName": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "applicantUserId", "category", "entityName", "status", "createdAt", "updatedAt"]
+    },
+    "AnonymousTopicDoc": {
+      "title": "AnonymousTopicDoc",
+      "description": "Pseudonymous Safe Topic discussion.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "authorId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "alias": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "topic": { "type": "string", "maxLength": 80 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 180 },
+        "content": { "type": "string", "minLength": 1, "maxLength": 3000 },
+        "hidden": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "authorId", "alias", "topic", "title", "content", "hidden", "createdAt", "updatedAt"]
+    },
+    "NotificationDoc": {
+      "title": "NotificationDoc",
+      "description": "User notification belonging to a specific recipient.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "recipientId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "actorId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "text": { "type": "string", "maxLength": 500 },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "recipientId", "actorId", "text", "read", "createdAt", "updatedAt"]
+    },
+    "TestConnectionDoc": {
+      "title": "TestConnectionDoc",
+      "description": "Connectivity verification probe document.",
+      "type": "object",
+      "properties": {
+        "ok": { "type": "boolean" }
+      }
+    },
+    "PersonnelRoleDoc": {
+      "title": "PersonnelRoleDoc",
+      "description": "RBAC security personnel assignment record managed by Platform Administrators.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "roles": { "type": "array", "items": { "type": "string", "enum": ["regular_user", "verification_officer", "senior_reviewer", "security_admin", "platform_admin"] } },
+        "updatedBy": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "roles", "updatedBy", "updatedAt"]
+    },
+    "UserSecuritySettingsDoc": {
+      "title": "UserSecuritySettingsDoc",
+      "description": "Private account security configuration (MFA flag, backup recovery settings, notifications).",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "mfaEnabled": { "type": "boolean" },
+        "mfaMethod": { "type": "string", "enum": ["authenticator_code", "email_otp"] },
+        "recoveryEmailBackup": { "type": "string", "maxLength": 200 },
+        "securityNotificationsEnabled": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "mfaEnabled", "securityNotificationsEnabled", "updatedAt"]
+    },
+    "RecoveryRequestSummaryDoc": {
+      "title": "RecoveryRequestSummaryDoc",
+      "description": "Metadata summary for Gov ID account recovery or hybrid verification (binary IDs never stored in Firestore).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "referenceNumber": { "type": "string", "minLength": 6, "maxLength": 40 },
+        "applicantUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "purpose": { "type": "string", "enum": ["account_recovery", "hybrid_identity_verification"] },
+        "idType": { "type": "string", "maxLength": 60 },
+        "status": { "type": "string", "enum": ["pending_review", "under_verification", "additional_info_required", "approved", "rejected", "appeal_under_review", "recovery_completed"] },
+        "rejectionReason": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "referenceNumber", "applicantUid", "purpose", "idType", "status", "createdAt", "updatedAt"]
+    },
+    "RecoveryAppealDoc": {
+      "title": "RecoveryAppealDoc",
+      "description": "Appeal record escalated to Senior Reviewers for rejected verification/recovery requests.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "requestId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "applicantUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "explanation": { "type": "string", "minLength": 15, "maxLength": 2000 },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "requestId", "applicantUid", "explanation", "status", "createdAt", "updatedAt"]
+    },
+    "SecurityAuditLogDoc": {
+      "title": "SecurityAuditLogDoc",
+      "description": "Immutable hash-chained security audit event log accessible only to Security Administrators.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "seq": { "type": "number" },
+        "eventType": { "type": "string", "maxLength": 60 },
+        "actorId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "outcome": { "type": "string", "enum": ["success", "failure", "blocked", "flagged"] },
+        "entryHash": { "type": "string", "minLength": 32, "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "seq", "eventType", "actorId", "outcome", "entryHash", "createdAt"]
+    },
+    "SecurityAlertDoc": {
+      "title": "SecurityAlertDoc",
+      "description": "Suspicious recovery/authentication alert tracked by Security Administrators.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "severity": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+        "category": { "type": "string", "maxLength": 120 },
+        "status": { "type": "string", "enum": ["open", "investigating", "resolved"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "severity", "category", "status", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/admins/{adminId}": {
+      "schema": { "$ref": "#/entities/AdminUser" },
+      "description": "Admin ACL roster documents."
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserPublicProfile" },
+      "description": "Community-visible member profiles."
+    },
+    "/users/{userId}/private/{docId}": {
+      "schema": { "$ref": "#/entities/UserPrivateInfo" },
+      "description": "Strictly private PII (email, mobile, birthday, settings) isolated per user."
+    },
+    "/posts/{postId}": {
+      "schema": { "$ref": "#/entities/SocialPostDoc" },
+      "description": "Social posts across Pulse, MySpace walls, Pages, and Circles."
+    },
+    "/albums/{albumId}": {
+      "schema": { "$ref": "#/entities/AlbumDoc" },
+      "description": "User Frames (photo/video albums)."
+    },
+    "/photos/{photoId}": {
+      "schema": { "$ref": "#/entities/PhotoDoc" },
+      "description": "Images and media items with Frame links."
+    },
+    "/marketplace/{itemId}": {
+      "schema": { "$ref": "#/entities/MarketplaceDoc" },
+      "description": "Shelves marketplace items."
+    },
+    "/pages/{pageId}": {
+      "schema": { "$ref": "#/entities/PageDoc" },
+      "description": "Public Pages."
+    },
+    "/groups/{groupId}": {
+      "schema": { "$ref": "#/entities/GroupDoc" },
+      "description": "Sphere Circles."
+    },
+    "/groups/{groupId}/members/{memberId}": {
+      "schema": { "$ref": "#/entities/GroupMembership" },
+      "description": "Circle membership subcollection."
+    },
+    "/threads/{threadId}": {
+      "schema": { "$ref": "#/entities/MessageThreadDoc" },
+      "description": "Direct messaging threads."
+    },
+    "/threads/{threadId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/DirectMessageDoc" },
+      "description": "Direct messages within a thread."
+    },
+    "/adCampaigns/{campaignId}": {
+      "schema": { "$ref": "#/entities/AdCampaignDoc" },
+      "description": "Promoted post campaigns."
+    },
+    "/donationDrives/{driveId}": {
+      "schema": { "$ref": "#/entities/DonationDriveDoc" },
+      "description": "Verified government organization Aid Drives."
+    },
+    "/verificationRequests/{requestId}": {
+      "schema": { "$ref": "#/entities/VerificationRequestDoc" },
+      "description": "Sphere ID verification requests."
+    },
+    "/anonymousPosts/{anonId}": {
+      "schema": { "$ref": "#/entities/AnonymousTopicDoc" },
+      "description": "Anonymous Safe Topics posts."
+    },
+    "/notifications/{notifId}": {
+      "schema": { "$ref": "#/entities/NotificationDoc" },
+      "description": "Per-user notifications."
+    },
+    "/test/{docId}": {
+      "schema": { "$ref": "#/entities/TestConnectionDoc" },
+      "description": "Firestore connectivity check path."
+    },
+    "/personnelRoles/{userId}": {
+      "schema": { "$ref": "#/entities/PersonnelRoleDoc" },
+      "description": "Staff RBAC roles assigned by Platform Administrators."
+    },
+    "/userSecuritySettings/{userId}": {
+      "schema": { "$ref": "#/entities/UserSecuritySettingsDoc" },
+      "description": "Per-user security & MFA preferences isolated to account owner."
+    },
+    "/recoveryRequests/{requestId}": {
+      "schema": { "$ref": "#/entities/RecoveryRequestSummaryDoc" },
+      "description": "Identity verification & account recovery status summaries (no binary Gov ID images)."
+    },
+    "/recoveryAppeals/{appealId}": {
+      "schema": { "$ref": "#/entities/RecoveryAppealDoc" },
+      "description": "Appeals escalated to Senior Reviewers."
+    },
+    "/securityAuditLogs/{logId}": {
+      "schema": { "$ref": "#/entities/SecurityAuditLogDoc" },
+      "description": "Append-only security audit log restricted to Security Administrators."
+    },
+    "/securityAlerts/{alertId}": {
+      "schema": { "$ref": "#/entities/SecurityAlertDoc" },
+      "description": "Suspicious activity alerts restricted to Security Administrators."
+    }
+  }
+}
